@@ -52,6 +52,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: ${{ matrix.name }}
+          cache-on-failure: true
       - name: Linux desktop dependencies
         if: runner.os == 'Linux'
         run: |
@@ -142,5 +143,10 @@ jobs:
           test "$(find artifacts -name 'SerialBridge-Chrome-*.zip' | wc -l)" -eq 1
           version=$(node -p 'JSON.parse(require("fs").readFileSync("package.json","utf8")).version')
           tag="v${version}-${GITHUB_SHA:0:7}"
-          find artifacts -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
-          gh release create "$tag" artifacts/* SHA256SUMS --target "$GITHUB_SHA" --prerelease --title "SerialBridge ${version} (${GITHUB_SHA:0:7})" --notes-file docs/RELEASE.md
+          # The Linux artifact preserves deb/ and appimage/ subdirectories.
+          mapfile -d '' packages < <(find artifacts -type f -print0 | sort -z)
+          for package in "${packages[@]}"; do
+            digest=$(sha256sum "$package" | cut -d ' ' -f 1)
+            printf '%s  %s\n' "$digest" "$(basename "$package")"
+          done > SHA256SUMS
+          gh release create "$tag" "${packages[@]}" SHA256SUMS --target "$GITHUB_SHA" --prerelease --title "SerialBridge ${version} (${GITHUB_SHA:0:7})" --notes-file docs/RELEASE.md
