@@ -1,0 +1,76 @@
+Windows tests and installer	Run npm test	﻿2026-10-12T16:59:39.5417998Z ##[group]Run npm test
+Windows tests and installer	Run npm test	2026-10-12T16:59:39.5418505Z [36;1mnpm test[0m
+Windows tests and installer	Run npm test	2026-10-12T16:59:39.5479088Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+Windows tests and installer	Run npm test	2026-10-12T16:59:39.5479406Z env:
+Windows tests and installer	Run npm test	2026-10-12T16:59:39.5479641Z   pythonLocation: C:\hostedtoolcache\windows\Python\3.12.10\x64
+Windows tests and installer	Run npm test	2026-10-12T16:59:39.5480008Z   PKG_CONFIG_PATH: C:\hostedtoolcache\windows\Python\3.12.10\x64/lib/pkgconfig
+Windows tests and installer	Run npm test	2026-10-12T16:59:39.5480367Z   Python_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
+Windows tests and installer	Run npm test	2026-10-12T16:59:39.5480694Z   Python2_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
+Windows tests and installer	Run npm test	2026-10-12T16:59:39.5481028Z   Python3_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
+Windows tests and installer	Run npm test	2026-10-12T16:59:39.5481310Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+Windows tests and installer	Run npm test	2026-10-12T16:59:39.5481540Z   CARGO_INCREMENTAL: 0
+Windows tests and installer	Run npm test	2026-10-12T16:59:39.5481720Z   CARGO_TERM_COLOR: always
+Windows tests and installer	Run npm test	2026-10-12T16:59:39.5481904Z   CACHE_ON_FAILURE: false
+Windows tests and installer	Run npm test	2026-10-12T16:59:39.5482078Z ##[endgroup]
+Windows tests and installer	Run npm test	2026-10-12T16:59:40.1940016Z 
+Windows tests and installer	Run npm test	2026-10-12T16:59:40.1940722Z > serialbridge-alpha@0.1.0-alpha.2 test
+Windows tests and installer	Run npm test	2026-10-12T16:59:40.1941493Z > npm run build && node --test --test-isolation=none tests/*.test.mjs
+Windows tests and installer	Run npm test	2026-10-12T16:59:40.1941892Z 
+Windows tests and installer	Run npm test	2026-10-12T16:59:40.4639647Z 
+Windows tests and installer	Run npm test	2026-10-12T16:59:40.4640495Z > serialbridge-alpha@0.1.0-alpha.2 build
+Windows tests and installer	Run npm test	2026-10-12T16:59:40.4640867Z > node scripts/build.mjs
+Windows tests and installer	Run npm test	2026-10-12T16:59:40.4641016Z 
+Windows tests and installer	Run npm test	2026-10-12T16:59:42.2950380Z Built console and browser extension. This does not compile Rust/Tauri.
+Windows tests and installer	Run npm test	2026-10-12T16:59:42.3312953Z node: bad option: --test-isolation=none
+Windows tests and installer	Run npm test	2026-10-12T16:59:42.4004065Z ##[error]Process completed with exit code 1.
+macOS tests and installer	Run npm test	﻿2026-10-12T16:59:24.8662330Z ##[group]Run npm test
+macOS tests and installer	Run npm test	2026-10-12T16:59:24.8662650Z [36;1mnpm test[0m
+macOS tests and installer	Run npm test	2026-10-12T16:59:24.8724070Z shell: /bin/bash -e {0}
+macOS tests and installer	Run npm test	2026-10-12T16:59:24.8724390Z env:
+macOS tests and installer	Run npm test	2026-10-12T16:59:24.8724680Z   pythonLocation: /Users/runner/hostedtoolcache/Python/3.12.10/arm64
+macOS tests and installer	Run npm test	2026-10-12T16:59:24.8739870Z   PKG_CONFIG_PATH: /Users/runner/hostedtoolcache/Python/3.12.10/arm64/lib/pkgconfig
+macOS tests and installer	Run npm test	2026-10-12T16:59:24.8740400Z   Python_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/arm64
+macOS tests and installer	Run npm test	2026-10-12T16:59:24.8740900Z   Python2_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/arm64
+macOS tests and installer	Run npm test	2026-10-12T16:59:24.8741360Z   Python3_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/arm64
+macOS tests and installer	Run npm test	2026-10-12T16:59:24.8741720Z   CARGO_HOME: /Users/runner/.cargo
+macOS tests and installer	Run npm test	2026-10-12T16:59:24.8741980Z   CARGO_INCREMENTAL: 0
+macOS tests and installer	Run npm test	2026-10-12T16:59:24.8742240Z   CARGO_TERM_COLOR: always
+macOS tests and installer	Run npm test	2026-10-12T16:59:24.8742500Z   CACHE_ON_FAILURE: false
+macOS tests and installer	Run npm test	2026-10-12T16:59:24.8742730Z ##[endgroup]
+macOS tests and installer	Run npm test	2026-10-12T16:59:25.0857300Z 
+macOS tests and installer	Run npm test	2026-10-12T16:59:25.0858060Z > serialbridge-alpha@0.1.0-alpha.2 test
+macOS tests and installer	Run npm test	2026-10-12T16:59:25.0858850Z > npm run build && node --test --test-isolation=none tests/*.test.mjs
+macOS tests and installer	Run npm test	2026-10-12T16:59:25.0859220Z 
+macOS tests and installer	Run npm test	2026-10-12T16:59:25.2169150Z 
+macOS tests and installer	Run npm test	2026-10-12T16:59:25.2171720Z > serialbridge-alpha@0.1.0-alpha.2 build
+macOS tests and installer	Run npm test	2026-10-12T16:59:25.2172190Z > node scripts/build.mjs
+macOS tests and installer	Run npm test	2026-10-12T16:59:25.2172700Z 
+macOS tests and installer	Run npm test	2026-10-12T16:59:26.9506480Z Built console and browser extension. This does not compile Rust/Tauri.
+macOS tests and installer	Run npm test	2026-10-12T16:59:27.0090430Z node: bad option: --test-isolation=none
+macOS tests and installer	Run npm test	2026-10-12T16:59:27.0296810Z ##[error]Process completed with exit code 9.
+Linux tests and installer	Run npm test	﻿2026-10-12T16:59:59.9294816Z ##[group]Run npm test
+Linux tests and installer	Run npm test	2026-10-12T16:59:59.9295045Z [36;1mnpm test[0m
+Linux tests and installer	Run npm test	2026-10-12T16:59:59.9357851Z shell: /usr/bin/bash -e {0}
+Linux tests and installer	Run npm test	2026-10-12T16:59:59.9358061Z env:
+Linux tests and installer	Run npm test	2026-10-12T16:59:59.9358276Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+Linux tests and installer	Run npm test	2026-10-12T16:59:59.9358635Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+Linux tests and installer	Run npm test	2026-10-12T16:59:59.9358970Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+Linux tests and installer	Run npm test	2026-10-12T16:59:59.9359258Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+Linux tests and installer	Run npm test	2026-10-12T16:59:59.9359546Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+Linux tests and installer	Run npm test	2026-10-12T16:59:59.9359837Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+Linux tests and installer	Run npm test	2026-10-12T16:59:59.9360097Z   CARGO_HOME: /home/runner/.cargo
+Linux tests and installer	Run npm test	2026-10-12T16:59:59.9360300Z   CARGO_INCREMENTAL: 0
+Linux tests and installer	Run npm test	2026-10-12T16:59:59.9360479Z   CARGO_TERM_COLOR: always
+Linux tests and installer	Run npm test	2026-10-12T16:59:59.9360666Z   CACHE_ON_FAILURE: false
+Linux tests and installer	Run npm test	2026-10-12T16:59:59.9360844Z ##[endgroup]
+Linux tests and installer	Run npm test	2026-10-12T17:00:00.0308269Z 
+Linux tests and installer	Run npm test	2026-10-12T17:00:00.0309054Z > serialbridge-alpha@0.1.0-alpha.2 test
+Linux tests and installer	Run npm test	2026-10-12T17:00:00.0309737Z > npm run build && node --test --test-isolation=none tests/*.test.mjs
+Linux tests and installer	Run npm test	2026-10-12T17:00:00.0310093Z 
+Linux tests and installer	Run npm test	2026-10-12T17:00:00.1201098Z 
+Linux tests and installer	Run npm test	2026-10-12T17:00:00.1201785Z > serialbridge-alpha@0.1.0-alpha.2 build
+Linux tests and installer	Run npm test	2026-10-12T17:00:00.1202271Z > node scripts/build.mjs
+Linux tests and installer	Run npm test	2026-10-12T17:00:00.1202468Z 
+Linux tests and installer	Run npm test	2026-10-12T17:00:01.4915189Z Built console and browser extension. This does not compile Rust/Tauri.
+Linux tests and installer	Run npm test	2026-10-12T17:00:01.5035361Z node: bad option: --test-isolation=none
+Linux tests and installer	Run npm test	2026-10-12T17:00:01.5115169Z ##[error]Process completed with exit code 9.

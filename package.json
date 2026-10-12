@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "test": "npm run build && node --test --test-isolation=none tests/*.test.mjs",
+    "test": "npm run build && node --test --experimental-test-isolation=none tests/*.test.mjs",
     "desktop:dev": "npm run build && cd crates/desktop && tauri dev",
     "desktop:build": "npm run build && cd crates/desktop && tauri build",
     "ui:serve": "python3 -m http.server 4173 --directory ui/dist",

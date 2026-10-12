@@ -1,0 +1,28 @@
+✔ allows only the exact origin, not a suffix match (2.878787ms)
+✔ method and sensitive headers are denied (1.421689ms)
+✔ file names cannot escape a directory or use Windows reserved names (0.638084ms)
+✔ limited streaming reads reject a response without content-length above the cap (34.461024ms)
+✔ empty and binary bodies remain byte-exact (2.230846ms)
+✔ permission check returning after disconnect never calls fetch (0.488114ms)
+✔ browser fetch uses credentials and rejects redirects (2.097084ms)
+✔ missing browser permission prevents fetch (0.295079ms)
+✔ binary WebSocket envelope roundtrips and enforces bounds (0.585145ms)
+✔ service-worker pairing, bounded fetch, binary download and disconnect using test doubles (36.71751ms)
+✔ a disconnected peer never leaves remote browser online (0.21084ms)
+✔ missing state is unknown/offline, never optimistic online (0.090791ms)
+✔ log filters combine query with level and component (0.207418ms)
+✔ unknown totals do not pretend to be 100 percent (0.122428ms)
+✔ untrusted markup is escaped (0.167218ms)
+✔ only an exact matching acknowledgement advances the window (0.185962ms)
+✔ out-of-order offset is rejected (1.232833ms)
+✔ disconnect rejects waiting chunks (0.231111ms)
+✔ cancellation releases the pending window (0.213263ms)
+✔ unacknowledged chunk has a finite deadline (5.315565ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 116.5952

@@ -1,0 +1,130 @@
+TAP version 13
+# Subtest: allows only the exact origin, not a suffix match
+ok 1 - allows only the exact origin, not a suffix match
+  ---
+  duration_ms: 2.751431
+  type: 'test'
+  ...
+# Subtest: method and sensitive headers are denied
+ok 2 - method and sensitive headers are denied
+  ---
+  duration_ms: 0.639522
+  type: 'test'
+  ...
+# Subtest: file names cannot escape a directory or use Windows reserved names
+ok 3 - file names cannot escape a directory or use Windows reserved names
+  ---
+  duration_ms: 1.482503
+  type: 'test'
+  ...
+# Subtest: limited streaming reads reject a response without content-length above the cap
+ok 4 - limited streaming reads reject a response without content-length above the cap
+  ---
+  duration_ms: 59.243997
+  type: 'test'
+  ...
+# Subtest: empty and binary bodies remain byte-exact
+ok 5 - empty and binary bodies remain byte-exact
+  ---
+  duration_ms: 4.925838
+  type: 'test'
+  ...
+# Subtest: permission check returning after disconnect never calls fetch
+ok 6 - permission check returning after disconnect never calls fetch
+  ---
+  duration_ms: 2.634085
+  type: 'test'
+  ...
+# Subtest: browser fetch uses credentials and rejects redirects
+ok 7 - browser fetch uses credentials and rejects redirects
+  ---
+  duration_ms: 4.696984
+  type: 'test'
+  ...
+# Subtest: missing browser permission prevents fetch
+ok 8 - missing browser permission prevents fetch
+  ---
+  duration_ms: 2.009639
+  type: 'test'
+  ...
+# Subtest: binary WebSocket envelope roundtrips and enforces bounds
+ok 9 - binary WebSocket envelope roundtrips and enforces bounds
+  ---
+  duration_ms: 0.723927
+  type: 'test'
+  ...
+# Subtest: service-worker pairing, bounded fetch, binary download and disconnect using test doubles
+ok 10 - service-worker pairing, bounded fetch, binary download and disconnect using test doubles
+  ---
+  duration_ms: 70.28575
+  type: 'test'
+  ...
+# Subtest: a disconnected peer never leaves remote browser online
+ok 11 - a disconnected peer never leaves remote browser online
+  ---
+  duration_ms: 0.245015
+  type: 'test'
+  ...
+# Subtest: missing state is unknown/offline, never optimistic online
+ok 12 - missing state is unknown/offline, never optimistic online
+  ---
+  duration_ms: 0.077743
+  type: 'test'
+  ...
+# Subtest: log filters combine query with level and component
+ok 13 - log filters combine query with level and component
+  ---
+  duration_ms: 0.128426
+  type: 'test'
+  ...
+# Subtest: unknown totals do not pretend to be 100 percent
+ok 14 - unknown totals do not pretend to be 100 percent
+  ---
+  duration_ms: 0.072789
+  type: 'test'
+  ...
+# Subtest: untrusted markup is escaped
+ok 15 - untrusted markup is escaped
+  ---
+  duration_ms: 0.189524
+  type: 'test'
+  ...
+# Subtest: only an exact matching acknowledgement advances the window
+ok 16 - only an exact matching acknowledgement advances the window
+  ---
+  duration_ms: 0.169112
+  type: 'test'
+  ...
+# Subtest: out-of-order offset is rejected
+ok 17 - out-of-order offset is rejected
+  ---
+  duration_ms: 0.14669
+  type: 'test'
+  ...
+# Subtest: disconnect rejects waiting chunks
+ok 18 - disconnect rejects waiting chunks
+  ---
+  duration_ms: 0.118018
+  type: 'test'
+  ...
+# Subtest: cancellation releases the pending window
+ok 19 - cancellation releases the pending window
+  ---
+  duration_ms: 0.166386
+  type: 'test'
+  ...
+# Subtest: unacknowledged chunk has a finite deadline
+ok 20 - unacknowledged chunk has a finite deadline
+  ---
+  duration_ms: 6.206846
+  type: 'test'
+  ...
+1..20
+# tests 20
+# suites 0
+# pass 20
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 198.261271
