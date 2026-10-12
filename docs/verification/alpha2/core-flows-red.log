@@ -1,0 +1,60 @@
+warning: unused import: `Deserialize`
+ --> crates/core/src/transfer.rs:6:13
+  |
+6 | use serde::{Deserialize,Serialize};
+  |             ^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `serialbridge-core` (lib) generated 1 warning (run `cargo fix --lib -p serialbridge-core` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.19s
+     Running tests/transfer_flows.rs (target/debug/deps/transfer_flows-27919c1d10e88ac9)
+
+running 5 tests
+test upload_rejects_file_limit_and_directory_quota ... ok
+test cancelling_an_incoming_upload_updates_status_and_releases_capacity ... FAILED
+test shared_file_handle_removal_preserves_original_and_rejects_invalid_ranges ... ok
+test wrong_hash_fails_without_publishing_a_file_and_releases_upload_slots ... ok
+test multichunk_upload_preserves_binary_bytes_and_publishes_only_after_finish ... ok
+
+failures:
+
+---- cancelling_an_incoming_upload_updates_status_and_releases_capacity stdout ----
+
+thread 'cancelling_an_incoming_upload_updates_status_and_releases_capacity' (5600) panicked at crates/core/tests/transfer_flows.rs:27:5:
+assertion `left == right` failed
+  left: "running"
+ right: "cancelled"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    cancelling_an_incoming_upload_updates_status_and_releases_capacity
+
+test result: FAILED. 4 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p serialbridge-core --test transfer_flows`
+     Running tests/transport_flows.rs (target/debug/deps/transport_flows-8eda7228d50eec0d)
+
+running 2 tests
+test disconnected_nodes_fail_pending_requests_and_clear_peer_state ... ok
+test bidirectional_binary_writes_progress_with_small_transport_buffers ... FAILED
+
+failures:
+
+---- bidirectional_binary_writes_progress_with_small_transport_buffers stdout ----
+
+thread 'bidirectional_binary_writes_progress_with_small_transport_buffers' (5611) panicked at crates/core/tests/transport_flows.rs:23:14:
+both nodes must read while writing a frame: Elapsed(())
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    bidirectional_binary_writes_progress_with_small_transport_buffers
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.01s
+
+error: test failed, to rerun pass `-p serialbridge-core --test transport_flows`
+error: 2 targets failed:
+    `-p serialbridge-core --test transfer_flows`
+    `-p serialbridge-core --test transport_flows`

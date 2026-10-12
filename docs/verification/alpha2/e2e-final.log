@@ -1,0 +1,22 @@
+PASS two independent headless processes handshake over development TCP
+PASS actual HTTP API rejects missing bearer token
+PASS public settings omit private credentials
+PASS twenty concurrent bidirectional RPC calls complete on one link
+PASS peer executes real HTTP fetch against a local fixture
+PASS real HTTP executor rejects ORIGIN_NOT_ALLOWED
+PASS real HTTP executor rejects REDIRECT_NOT_ALLOWED
+PASS real HTTP executor rejects RESPONSE_TOO_LARGE
+PASS local HTTP download returns byte-exact verified content
+PASS peer HTTP download returns byte-exact verified content
+PASS peer push verifies push.bin
+PASS peer push verifies empty.bin
+PASS peer pull preserves the original shared file
+PASS cancelled peer download exposes no completed file
+PASS terminal transfer deletion removes its record
+PASS peer process exit reports offline and restart re-establishes RPC
+PASS live UI reads actual Core state without simulated data
+PASS live Core logs open details in UI
+PASS UI settings persist to Core and request a real pairing code
+PASS UI creates a real peer download and displays verified completion
+PASS actual Core shutdown clears UI online state without demo fallback
+21 real integration checks passed

@@ -1,43 +1,110 @@
-use crate::{error::{BridgeError,Result},node::{BrowserEvent,BrowserLink,Node,PairCode}};
-use axum::extract::ws::{Message,WebSocket};
+use crate::{
+    error::{BridgeError, Result},
+    node::{BrowserEvent, BrowserLink, Node, PairCode},
+};
+use axum::extract::ws::{Message, WebSocket};
 use bytes::Bytes;
 use futures_util::SinkExt;
-use serde_json::{json,Value};
-use std::{sync::Arc,time::{Duration,Instant}};
+use serde_json::{json, Value};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 use subtle::ConstantTimeEq;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
-pub fn token_equal(a:&str,b:&str)->bool{a.len()==b.len()&&bool::from(a.as_bytes().ct_eq(b.as_bytes()))}
-pub fn valid_origin(s:&str)->bool{let Some(id)=s.strip_prefix("chrome-extension://")else{return false};id.len()==32&&id.bytes().all(|b|(b'a'..=b'p').contains(&b))}
+pub fn token_equal(a: &str, b: &str) -> bool {
+    a.len() == b.len() && bool::from(a.as_bytes().ct_eq(b.as_bytes()))
+}
+pub fn valid_origin(s: &str) -> bool {
+    let Some(id) = s.strip_prefix("chrome-extension://") else {
+        return false;
+    };
+    id.len() == 32 && id.bytes().all(|b| (b'a'..=b'p').contains(&b))
+}
 impl Node {
-    pub fn new_pair_code(&self)->Value {
-        let code=Uuid::new_v4().simple().to_string()[..12].to_ascii_uppercase();
-        *self.pairing.lock().unwrap()=Some(PairCode{code:code.clone(),expires:Instant::now()+Duration::from_secs(180),attempts:0});
+    pub fn new_pair_code(&self) -> Value {
+        let code = Uuid::new_v4().simple().to_string()[..12].to_ascii_uppercase();
+        *self.pairing.lock().unwrap() = Some(PairCode {
+            code: code.clone(),
+            expires: Instant::now() + Duration::from_secs(180),
+            attempts: 0,
+        });
         json!({"code":code,"expires_in_seconds":180})
     }
-    pub fn revoke_browser(&self)->Result<()> {
-        let mut cfg=self.config.write().unwrap();cfg.extension_origin=None;cfg.extension_token=None;cfg.save(&self.config_path)?;drop(cfg);
-        *self.pairing.lock().unwrap()=None;
-        if let Some(link)=self.browser.lock().unwrap().take(){link.stop.cancel();self.browser_pending.lock().unwrap().retain(|_,p|p.epoch!=link.epoch);}
-        self.log("warn","browser","Browser pairing revoked","");Ok(())
+    pub fn revoke_browser(&self) -> Result<()> {
+        let mut cfg = self.config.write().unwrap();
+        cfg.extension_origin = None;
+        cfg.extension_token = None;
+        cfg.save(&self.config_path)?;
+        drop(cfg);
+        *self.pairing.lock().unwrap() = None;
+        if let Some(link) = self.browser.lock().unwrap().take() {
+            link.stop.cancel();
+            self.browser_pending
+                .lock()
+                .unwrap()
+                .retain(|_, p| p.epoch != link.epoch);
+        }
+        self.log("warn", "browser", "Browser pairing revoked", "");
+        Ok(())
     }
-    fn authenticate_browser(&self,origin:&str,first:&Value)->Result<Option<String>>{
-        if !valid_origin(origin){return Err(BridgeError::new("UNAUTHORIZED","Invalid extension origin"))}
-        match first["type"].as_str(){
-            Some("auth")=>{let cfg=self.cfg();if cfg.extension_origin.as_deref()!=Some(origin)||!cfg.extension_token.as_ref().is_some_and(|t|token_equal(t,first["token"].as_str().unwrap_or(""))){return Err(BridgeError::new("UNAUTHORIZED","Browser credential rejected"))}Ok(None)},
-            Some("pair")=>{
-                let mut pairing=self.pairing.lock().unwrap();let code=pairing.as_mut().ok_or_else(||BridgeError::new("UNAUTHORIZED","Generate a pairing code in the desktop console first"))?;
-                code.attempts=code.attempts.saturating_add(1);
-                if code.expires<Instant::now()||code.attempts>5||!token_equal(&code.code,first["code"].as_str().unwrap_or("")){return Err(BridgeError::new("UNAUTHORIZED","Pairing code invalid, expired or locked"))}
-                *pairing=None;drop(pairing);
-                let token=format!("{}{}",Uuid::new_v4().simple(),Uuid::new_v4().simple());
-                let mut cfg=self.config.write().unwrap();cfg.extension_origin=Some(origin.to_string());cfg.extension_token=Some(token.clone());cfg.save(&self.config_path)?;Ok(Some(token))
-            },_=>Err(BridgeError::new("UNAUTHORIZED","Authentication must be the first message"))
+    fn authenticate_browser(&self, origin: &str, first: &Value) -> Result<Option<String>> {
+        if !valid_origin(origin) {
+            return Err(BridgeError::new("UNAUTHORIZED", "Invalid extension origin"));
+        }
+        match first["type"].as_str() {
+            Some("auth") => {
+                let cfg = self.cfg();
+                if cfg.extension_origin.as_deref() != Some(origin)
+                    || !cfg
+                        .extension_token
+                        .as_ref()
+                        .is_some_and(|t| token_equal(t, first["token"].as_str().unwrap_or("")))
+                {
+                    return Err(BridgeError::new(
+                        "UNAUTHORIZED",
+                        "Browser credential rejected",
+                    ));
+                }
+                Ok(None)
+            }
+            Some("pair") => {
+                let mut pairing = self.pairing.lock().unwrap();
+                let code = pairing.as_mut().ok_or_else(|| {
+                    BridgeError::new(
+                        "UNAUTHORIZED",
+                        "Generate a pairing code in the desktop console first",
+                    )
+                })?;
+                code.attempts = code.attempts.saturating_add(1);
+                if code.expires < Instant::now()
+                    || code.attempts > 5
+                    || !token_equal(&code.code, first["code"].as_str().unwrap_or(""))
+                {
+                    return Err(BridgeError::new(
+                        "UNAUTHORIZED",
+                        "Pairing code invalid, expired or locked",
+                    ));
+                }
+                *pairing = None;
+                drop(pairing);
+                let token = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
+                let mut cfg = self.config.write().unwrap();
+                cfg.extension_origin = Some(origin.to_string());
+                cfg.extension_token = Some(token.clone());
+                cfg.save(&self.config_path)?;
+                Ok(Some(token))
+            }
+            _ => Err(BridgeError::new(
+                "UNAUTHORIZED",
+                "Authentication must be the first message",
+            )),
         }
     }
 }
-pub async fn serve_socket(node:Arc<Node>,mut ws:WebSocket,origin:String){
+pub async fn serve_socket(node: Arc<Node>, mut ws: WebSocket, origin: String) {
     let result=async {
         let first=tokio::time::timeout(Duration::from_secs(5),ws.recv()).await.map_err(|_|BridgeError::new("UNAUTHORIZED","Authentication timeout"))?.ok_or_else(||BridgeError::new("UNAUTHORIZED","Socket closed"))?.map_err(BridgeError::io)?;
         let Message::Text(text)=first else{return Err(BridgeError::new("UNAUTHORIZED","Expected authentication JSON"))};
@@ -58,7 +125,15 @@ pub async fn serve_socket(node:Arc<Node>,mut ws:WebSocket,origin:String){
             incoming=ws.recv()=>{
                 let msg=incoming.ok_or_else(||BridgeError::new("BROWSER_DISCONNECTED","Extension socket closed"))?.map_err(BridgeError::io)?;last=Instant::now();
                 let event=match msg{
-                    Message::Text(t)=>{let v:Value=serde_json::from_str(t.as_str())?;if v["type"]=="ping"{ws.send(Message::Text(json!({"type":"pong"}).to_string().into())).await.map_err(BridgeError::io)?;continue}if v["type"]=="pong"{continue}BrowserEvent::Meta(v)},
+                    Message::Text(t)=>{
+                        let v:Value=serde_json::from_str(t.as_str())?;
+                        if v["type"]=="ping"{
+                            ws.send(Message::Text(json!({"type":"pong"}).to_string().into())).await.map_err(BridgeError::io)?;
+                            continue;
+                        }
+                        if v["type"]=="pong"{continue}
+                        BrowserEvent::Meta(v)
+                    },
                     Message::Binary(b)=>{if b.len()<4{return Err(BridgeError::invalid("Truncated browser frame"))}let n=u32::from_be_bytes(b[..4].try_into().unwrap())as usize;if n>4096||n+4>b.len()||b.len()-4-n>65536{return Err(BridgeError::invalid("Oversized browser frame"))}BrowserEvent::Chunk(serde_json::from_slice(&b[4..4+n])?,Bytes::copy_from_slice(&b[4+n..]))},
                     Message::Close(_)=>return Ok(()),Message::Ping(b)=>{ws.send(Message::Pong(b)).await.map_err(BridgeError::io)?;continue},Message::Pong(_)=>continue,
                 };
@@ -69,7 +144,37 @@ pub async fn serve_socket(node:Arc<Node>,mut ws:WebSocket,origin:String){
             }
         }}
     }.await;
-    if let Err(e)=result{node.log("warn","browser",e.code.clone(),"");let _=ws.send(Message::Text(json!({"type":"error","error":e}).to_string().into())).await;}
-    let _=ws.close().await;
+    if let Err(e) = result {
+        node.log("warn", "browser", e.code.clone(), "");
+        let _ = ws
+            .send(Message::Text(
+                json!({"type":"error","error":e}).to_string().into(),
+            ))
+            .await;
+    }
+    let _ = ws.close().await;
 }
-#[cfg(test)]mod tests{use super::*;#[test]fn extension_origin_is_strict(){assert!(valid_origin("chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));for s in ["https://evil.test","chrome-extension://abc","chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaZ","chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"]{assert!(!valid_origin(s))}}#[test]fn token_check_rejects_empty_and_different_strings(){assert!(token_equal("abcd","abcd"));assert!(!token_equal("abcd","abce"));assert!(!token_equal("abcd",""));}}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn extension_origin_is_strict() {
+        assert!(valid_origin(
+            "chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ));
+        for s in [
+            "https://evil.test",
+            "chrome-extension://abc",
+            "chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaZ",
+            "chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/",
+        ] {
+            assert!(!valid_origin(s))
+        }
+    }
+    #[test]
+    fn token_check_rejects_empty_and_different_strings() {
+        assert!(token_equal("abcd", "abcd"));
+        assert!(!token_equal("abcd", "abce"));
+        assert!(!token_equal("abcd", ""));
+    }
+}

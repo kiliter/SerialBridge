@@ -1,0 +1,33 @@
+   Compiling serialbridge-core v0.1.0-alpha.1 (/workspace/SerialBridge-dev/crates/core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.31s
+     Running tests/transfer_flows.rs (target/debug/deps/transfer_flows-2e8f9e63fffd810a)
+
+running 2 tests
+test failed_upload_creation_records_failure_and_releases_capacity ... FAILED
+test failed_file_publication_records_failure_and_releases_capacity ... FAILED
+
+failures:
+
+---- failed_upload_creation_records_failure_and_releases_capacity stdout ----
+
+thread 'failed_upload_creation_records_failure_and_releases_capacity' (10998) panicked at crates/core/tests/transfer_flows.rs:30:5:
+assertion `left == right` failed
+  left: "running"
+ right: "failed"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- failed_file_publication_records_failure_and_releases_capacity stdout ----
+
+thread 'failed_file_publication_records_failure_and_releases_capacity' (10997) panicked at crates/core/tests/transfer_flows.rs:42:5:
+assertion `left == right` failed
+  left: "running"
+ right: "failed"
+
+
+failures:
+    failed_file_publication_records_failure_and_releases_capacity
+    failed_upload_creation_records_failure_and_releases_capacity
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p serialbridge-core --test transfer_flows`

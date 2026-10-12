@@ -1,15 +1,16 @@
 {
   "name": "serialbridge-alpha",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "test": "npm run build && node --test tests/*.test.mjs",
+    "test": "npm run build && node --test --test-isolation=none tests/*.test.mjs",
     "desktop:dev": "npm run build && cd crates/desktop && tauri dev",
     "desktop:build": "npm run build && cd crates/desktop && tauri build",
-    "ui:serve": "python3 -m http.server 4173 --directory ui/dist"
+    "ui:serve": "python3 -m http.server 4173 --directory ui/dist",
+    "extension:package": "npm run build && python scripts/package-extension.py"
   },
   "devDependencies": { "typescript": "5.8.3", "@tauri-apps/cli": "^2.0.0" },
-  "engines": { "node": ">=22" }
+  "engines": { "node": ">=22.8" }
 }

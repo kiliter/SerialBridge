@@ -1,8 +1,8 @@
 # SerialBridge — Source Alpha
 
-**这是实际源码工程，不是安装包，也不是已经通过双机验收的发布版。**
-本次从已确认的方案重新实现。此前不存在的源码包不能恢复，本包不沿用此前未证实的完成声明。
-请先阅读根目录 `SerialBridge-Delivery-Status.md`。当前环境执行了 TypeScript 构建、Node 测试和离线 DOM 测试；**没有 Rust 编译器，Rust/Tauri 构建没有通过验证**。
+**当前版本：`0.1.0-alpha.2`。这是继续验证和修复后的 Alpha。**
+请先阅读根目录 `SerialBridge-Delivery-Status.md`。Core 单元/集成测试、真实同机双节点和 live UI 流程已在本地执行。三平台安装包及真实 Chromium 扩展由 GitHub Actions 检查和构建，结果以对应运行记录为准。
+下载与平台说明见 [GitHub Releases](https://github.com/kiliter/SerialBridge/releases) 和 [docs/RELEASE.md](docs/RELEASE.md)。FT232RL 双机链路与网站登录态仍需实机验收。
 
 ## 包含什么
 
@@ -22,18 +22,18 @@
 
 ## 1. 构建前的检查
 
-需要 Node.js 22+、npm，以及 Rust stable。Windows 桌面构建还需要对应的 MSVC 构建工具与 WebView2；macOS 需要 Xcode Command Line Tools。平台准备步骤以 Tauri 官方文档为准：见 `docs/REFERENCES.md`。
+需要 Node.js 22.8+、npm，以及 Rust stable。Windows 桌面构建还需要对应的 MSVC 构建工具与 WebView2；macOS 需要 Xcode Command Line Tools。平台准备步骤以 Tauri 官方文档为准：见 `docs/REFERENCES.md`。
 
 在工程根目录执行：
 
 ```bash
-npm install
+npm ci
 npm test
-cargo test -p serialbridge-core
-cargo check -p serialbridge-desktop
+cargo test -p serialbridge-core --locked
+cargo check -p serialbridge-desktop --locked
 ```
 
-**先解决 Rust 编译/测试失败，再做硬件联调。** 本环境无法解析下载 Rust/npm 依赖，所以没有虚构 `Cargo.lock` 或 npm lockfile。`typescript` 固定到本次实际使用的 5.8.3，其余依赖以 manifest 约束为准；首次成功解析后应保留生成的 lockfile。CI 配置尚未运行，不能代替验证结果。
+已保留实际生成的 `Cargo.lock` 和 `package-lock.json`；请使用 `--locked` 和 `npm ci` 保持依赖一致。Linux 桌面开发需要 WebKitGTK 4.1、GTK 3、Ayatana AppIndicator 和相关开发库，安装命令可见 `.github/workflows/check.yml`。Core/headless 不需要桌面开发库。
 
 `npm run build` 只构建 UI 与浏览器扩展，不编译 Rust。包中已包含本次构建出的 `ui/dist` 和 `browser-extension/dist`。
 
@@ -169,7 +169,7 @@ cargo run -p serialbridge-core -- --config node-b.toml serve --dev-tcp-connect 1
 
 ## 8. Alpha 边界
 
-- 真正的 Rust、Tauri、Chrome 本地联调、FT232RL 硬件链路均未完成验证。
+- Rust 和真实同机 TCP 软件链路已验证；Tauri/Chrome 的平台结果见 Actions，FT232RL 硬件验收仍待执行。
 - 文件采用有界、单块请求/应答流控，没有实现高吞吐滑动窗口、自动续传、HTTP Range 或加密串口。
 - 默认单文件 100 MiB、下载目录配额 1 GiB；参数可在停止程序后修改，最大单文件上限 10 GiB。不能承诺串口能高速搬运大文件。
 - 任务、句柄、日志在内存中；下载完成的文件落盘保留，程序重启不会恢复任务历史。残留 `.part` 需在停机后清理。
@@ -188,6 +188,19 @@ npm test
 cargo test -p serialbridge-core
 ```
 
-`tests/ui_smoke.py` 是正常浏览器导航场景脚本；本环境被 `ERR_BLOCKED_BY_ADMINISTRATOR` 阻止，没有将其计为通过。`tests/ui_offline_dom.py` 在 `about:blank` 上渲染本地代码，注入明确标记的 API 测试替身，不访问被禁止的本地 URL，也不冒充真实 core。截图标题有清晰标注。
+额外验证入口：
+
+```bash
+cargo build -p serialbridge-core --locked
+python tests/e2e.py                         # 两个真实 headless 进程、HTTP/TCP 与文件流程
+python -m pip install -r requirements-test.txt
+python -m playwright install chromium
+python tests/e2e.py --browser               # 真实 Core + UI
+python tests/e2e.py --extension             # 还加载实际 Chromium 扩展，需要允许未打包扩展
+python tests/test_packaging.py
+npm run extension:package
+```
+
+`tests/ui_smoke.py` 和 `tests/ui_offline_dom.py` 仍用于明确标注的 demo/API 测试替身检查，不能当成真实 Core 或硬件证据。`tests/desktop_smoke.py` 检查已编译原生程序的嵌入 Core 启动；Linux 需在 `xvfb-run` 下执行。
 
 已有源码不等于硬件验收。建议后续依次验证：Rust 构建 → 同机双节点协议 → 浏览器扩展 → 两台真实电脑与串口 → 双向并发 → 小文件 → 较大文件 → 热插拔及异常恢复。

@@ -1,26 +1,68 @@
-use crate::{error::{BridgeError,Result},node::{Node,PeerLink,Reply},protocol::{self,FrameCodec,Packet}};
+use crate::{
+    error::{BridgeError, Result},
+    node::{Node, PeerLink, Reply},
+    protocol::{self, FrameCodec, Packet},
+};
 use bytes::Bytes;
-use futures_util::{SinkExt,StreamExt};
-use serde_json::{json,Value};
-use std::{collections::HashMap,sync::Arc,time::Duration};
-use tokio::{io::{AsyncRead,AsyncWrite},sync::{mpsc,Semaphore}};
+use futures_util::{SinkExt, StreamExt};
+use serde_json::{json, Value};
+use std::{collections::HashMap, sync::Arc, time::Duration};
+use tokio::{
+    io::{AsyncRead, AsyncWrite},
+    sync::{mpsc, Semaphore},
+};
 use tokio_serial::SerialPortBuilderExt;
-use tokio_util::{codec::Framed,sync::CancellationToken};
+use tokio_util::{codec::Framed, sync::CancellationToken};
 use uuid::Uuid;
 /// Only for development tests. Production uses Serial; no IP interface or USB networking is created.
-#[derive(Clone,Debug)]pub enum TransportMode{Serial,TcpConnect(std::net::SocketAddr),TcpListen(std::net::SocketAddr)}
-pub async fn run(node:Arc<Node>,mode:TransportMode){
+#[derive(Clone, Debug)]
+pub enum TransportMode {
+    Serial,
+    TcpConnect(std::net::SocketAddr),
+    TcpListen(std::net::SocketAddr),
+}
+pub async fn run(node: Arc<Node>, mode: TransportMode) {
     loop {
-        let cfg=node.cfg();
-        let attempt=async {
+        let cfg = node.cfg();
+        let attempt = async {
             match &mode {
-                TransportMode::Serial=>{
-                    if cfg.serial_port.is_empty(){return Err(BridgeError::new("NO_PORT","Select a serial port in Settings"))}
-                    let serial=tokio_serial::new(&cfg.serial_port,cfg.baud_rate).data_bits(tokio_serial::DataBits::Eight).parity(tokio_serial::Parity::None).stop_bits(tokio_serial::StopBits::One).flow_control(tokio_serial::FlowControl::None).open_native_async().map_err(BridgeError::io)?;
-                    session(node.clone(),serial).await
-                },
-                TransportMode::TcpConnect(addr)=>{if !addr.ip().is_loopback(){return Err(BridgeError::invalid("Development transport must use loopback"))}let stream=tokio::net::TcpStream::connect(addr).await?;stream.set_nodelay(true)?;session(node.clone(),stream).await},
-                TransportMode::TcpListen(addr)=>{if !addr.ip().is_loopback(){return Err(BridgeError::invalid("Development transport must use loopback"))}let listener=tokio::net::TcpListener::bind(addr).await?;let(stream,_)=listener.accept().await?;stream.set_nodelay(true)?;session(node.clone(),stream).await},
+                TransportMode::Serial => {
+                    if cfg.serial_port.is_empty() {
+                        return Err(BridgeError::new(
+                            "NO_PORT",
+                            "Select a serial port in Settings",
+                        ));
+                    }
+                    let serial = tokio_serial::new(&cfg.serial_port, cfg.baud_rate)
+                        .data_bits(tokio_serial::DataBits::Eight)
+                        .parity(tokio_serial::Parity::None)
+                        .stop_bits(tokio_serial::StopBits::One)
+                        .flow_control(tokio_serial::FlowControl::None)
+                        .open_native_async()
+                        .map_err(BridgeError::io)?;
+                    session(node.clone(), serial).await
+                }
+                TransportMode::TcpConnect(addr) => {
+                    if !addr.ip().is_loopback() {
+                        return Err(BridgeError::invalid(
+                            "Development transport must use loopback",
+                        ));
+                    }
+                    let stream = tokio::net::TcpStream::connect(addr).await?;
+                    stream.set_nodelay(true)?;
+                    session(node.clone(), stream).await
+                }
+                TransportMode::TcpListen(addr) => {
+                    if !addr.ip().is_loopback() {
+                        return Err(BridgeError::invalid(
+                            "Development transport must use loopback",
+                        ));
+                    }
+                    let listener = tokio::net::TcpListener::bind(addr).await?;
+                    let (stream, _) = listener.accept().await?;
+                    stream.set_nodelay(true)?;
+                    session(node.clone(), stream).await
+                }
             }
         };
         tokio::select! {
@@ -28,38 +70,85 @@ pub async fn run(node:Arc<Node>,mode:TransportMode){
             result=attempt=>if let Err(e)=result{node.log("warn","serial",format!("{}: {}",e.code,e.message),"");},
         }
         if !cfg.auto_reconnect {
-            tokio::select!{_=node.shutdown.cancelled()=>break,_=node.reconnect.notified()=>{}}
+            tokio::select! {_=node.shutdown.cancelled()=>break,_=node.reconnect.notified()=>{}}
         } else {
-            tokio::select!{_=node.shutdown.cancelled()=>break,_=node.reconnect.notified()=>{},_=tokio::time::sleep(Duration::from_secs(3))=>{}}
+            tokio::select! {_=node.shutdown.cancelled()=>break,_=node.reconnect.notified()=>{},_=tokio::time::sleep(Duration::from_secs(3))=>{}}
         }
     }
 }
-pub async fn session<T>(node:Arc<Node>,io:T)->Result<()>
-where T:AsyncRead+AsyncWrite+Unpin+Send+'static {
-    let epoch=Uuid::new_v4();let(tx,mut rx)=mpsc::channel::<Packet>(32);
-    *node.peer.lock().unwrap()=Some(PeerLink{epoch,tx:tx.clone(),ready:false,remote:Value::Null});
-    let mut framed=Framed::new(io,FrameCodec);let stop=CancellationToken::new();
+pub async fn session<T>(node: Arc<Node>, io: T) -> Result<()>
+where
+    T: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+{
+    let epoch = Uuid::new_v4();
+    let (tx, mut rx) = mpsc::channel::<Packet>(32);
+    *node.peer.lock().unwrap() = Some(PeerLink {
+        epoch,
+        tx: tx.clone(),
+        ready: false,
+        remote: Value::Null,
+    });
+    let (sink, mut stream) = Framed::new(io, FrameCodec).split();
+    let stop = CancellationToken::new();
     // This guard also runs if the outer future is cancelled during shutdown.
-    struct Guard{node:Arc<Node>,epoch:Uuid,stop:CancellationToken}
-    impl Drop for Guard{fn drop(&mut self){self.stop.cancel();self.node.peer_lost(self.epoch);}}
-    let _guard=Guard{node:node.clone(),epoch,stop:stop.clone()};
-    let mut active:HashMap<Uuid,CancellationToken>=HashMap::new();
-    let(complete_tx,mut complete_rx)=mpsc::channel::<Uuid>(32);let slots=Arc::new(Semaphore::new(16));
-    framed.send(Packet::new(protocol::HELLO,epoch,node.announcement(),Bytes::new())).await?;
-    let mut remote_epoch=None;let mut heartbeat=tokio::time::interval(Duration::from_secs(5));let mut last=tokio::time::Instant::now();
+    struct Guard {
+        node: Arc<Node>,
+        epoch: Uuid,
+        stop: CancellationToken,
+    }
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            self.stop.cancel();
+            self.node.peer_lost(self.epoch);
+        }
+    }
+    let _guard = Guard {
+        node: node.clone(),
+        epoch,
+        stop: stop.clone(),
+    };
+    let mut active: HashMap<Uuid, CancellationToken> = HashMap::new();
+    let (complete_tx, mut complete_rx) = mpsc::channel::<Uuid>(32);
+    let slots = Arc::new(Semaphore::new(16));
+    tx.try_send(Packet::new(
+        protocol::HELLO,
+        epoch,
+        node.announcement(),
+        Bytes::new(),
+    ))
+    .map_err(|_| BridgeError::new("PEER_DISCONNECTED", "Serial write queue closed"))?;
+    // Poll writing independently of reading. Otherwise two full-duplex peers can
+    // both fill the device buffer and wait forever without reading each other.
+    // The future remains owned by this session and is dropped on every exit.
+    let writer = async move {
+        let mut sink = sink;
+        while let Some(packet) = rx.recv().await {
+            tokio::time::timeout(Duration::from_secs(20), sink.send(packet))
+                .await
+                .map_err(|_| BridgeError::new("TIMEOUT", "Serial write timeout"))??;
+        }
+        Err::<(), _>(BridgeError::new(
+            "PEER_DISCONNECTED",
+            "Serial write queue closed",
+        ))
+    };
+    tokio::pin!(writer);
+    let mut remote_epoch = None;
+    let mut heartbeat = tokio::time::interval(Duration::from_secs(5));
+    let mut last = tokio::time::Instant::now();
     loop {
         tokio::select! {
             _=node.shutdown.cancelled()=>return Ok(()),
             _=node.reconnect.notified()=>return Ok(()),
+            result=&mut writer=>return result,
             Some(id)=complete_rx.recv()=>{active.remove(&id);},
             _=heartbeat.tick()=>{
                 if last.elapsed()>Duration::from_secs(25){return Err(BridgeError::new("TIMEOUT","Peer heartbeat timed out"))}
-                framed.send(Packet::new(protocol::HEARTBEAT,epoch,node.announcement(),Bytes::new())).await?;
+                // Traffic already keeps the link alive; do not block the reader
+                // behind a full write queue just to add a heartbeat.
+                let _=tx.try_send(Packet::new(protocol::HEARTBEAT,epoch,node.announcement(),Bytes::new()));
             },
-            Some(packet)=rx.recv()=>{
-                tokio::time::timeout(Duration::from_secs(20),framed.send(packet)).await.map_err(|_|BridgeError::new("TIMEOUT","Serial write timeout"))??;
-            },
-            received=framed.next()=>{
+            received=stream.next()=>{
                 let packet=received.ok_or_else(||BridgeError::new("PEER_DISCONNECTED","Serial stream ended"))??;last=tokio::time::Instant::now();
                 match packet.kind {
                     protocol::HELLO|protocol::HEARTBEAT=>{

@@ -5,3 +5,6 @@ node_modules/
 config.toml
 .serialbridge/
 .DS_Store
+artifacts/
+.superpowers/
+__pycache__/

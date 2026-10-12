@@ -1,0 +1,10 @@
+PASS overview has explicit demo label and distinct local/peer browser cards
+PASS logs support search, details and pausing
+PASS browser console exports filtered logs
+PASS download form and cancellation update transfer cards
+PASS settings save and short-lived pairing code rendering
+PASS all four demo pages have zero uncaught JavaScript errors
+PASS live mode renders escaped API fixture data, not automatic demo data
+PASS peer disconnection invalidates remote browser online status
+PASS API failure reports offline and never falls back to demo mode
+9 UI checks passed

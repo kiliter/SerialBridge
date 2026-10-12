@@ -1,5 +1,15 @@
 {
   "scope": "UI only; demo data and intercepted HTTP fixtures, not Rust/hardware",
-  "passed": [],
-  "count": 0
+  "passed": [
+    "overview has explicit demo label and distinct local/peer browser cards",
+    "logs support search, details and pausing",
+    "browser console exports filtered logs",
+    "download form and cancellation update transfer cards",
+    "settings save and short-lived pairing code rendering",
+    "all four demo pages have zero uncaught JavaScript errors",
+    "live mode renders escaped API fixture data, not automatic demo data",
+    "peer disconnection invalidates remote browser online status",
+    "API failure reports offline and never falls back to demo mode"
+  ],
+  "count": 9
 }

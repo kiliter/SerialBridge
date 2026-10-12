@@ -1,0 +1,28 @@
+{
+  "scope": "real headless Core over loopback TCP; UI/extension only when requested; no physical serial hardware",
+  "extension_requested": false,
+  "passed": [
+    "two independent headless processes handshake over development TCP",
+    "actual HTTP API rejects missing bearer token",
+    "public settings omit private credentials",
+    "twenty concurrent bidirectional RPC calls complete on one link",
+    "peer executes real HTTP fetch against a local fixture",
+    "real HTTP executor rejects ORIGIN_NOT_ALLOWED",
+    "real HTTP executor rejects REDIRECT_NOT_ALLOWED",
+    "real HTTP executor rejects RESPONSE_TOO_LARGE",
+    "local HTTP download returns byte-exact verified content",
+    "peer HTTP download returns byte-exact verified content",
+    "peer push verifies push.bin",
+    "peer push verifies empty.bin",
+    "peer pull preserves the original shared file",
+    "cancelled peer download exposes no completed file",
+    "terminal transfer deletion removes its record",
+    "peer process exit reports offline and restart re-establishes RPC",
+    "live UI reads actual Core state without simulated data",
+    "live Core logs open details in UI",
+    "UI settings persist to Core and request a real pairing code",
+    "UI creates a real peer download and displays verified completion",
+    "actual Core shutdown clears UI online state without demo fallback"
+  ],
+  "count": 21
+}

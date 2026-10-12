@@ -1,0 +1,426 @@
+    Updating crates.io index
+     Locking 495 packages to highest compatible versions
+      Adding base64 v0.22.1 (available: v0.23.1)
+      Adding brotli-decompressor v6.0.1 (available: v6.1.0)
+      Adding generic-array v0.14.7 (available: v0.14.9)
+      Adding matchit v0.8.4 (available: v0.8.6)
+      Adding proc-macro-crate v2.0.0 (available: v2.0.2)
+      Adding reqwest v0.12.28 (available: v0.13.5)
+      Adding sha2 v0.10.9 (available: v0.11.0)
+      Adding toml v0.8.23 (available: v1.1.8+spec-1.1.0)
+ Downloading crates ...
+  Downloaded icu_normalizer v2.3.0
+  Downloaded idna_adapter v1.2.2
+  Downloaded aho-corasick v1.1.5
+  Downloaded idna v1.1.0
+  Downloaded indexmap v2.14.2
+  Downloaded icu_properties v2.3.0
+  Downloaded is_terminal_polyfill v1.70.2
+  Downloaded icu_provider v2.3.1
+  Downloaded icu_normalizer_data v2.3.0
+  Downloaded lazy_static v1.5.1
+  Downloaded icu_properties_data v2.3.0
+  Downloaded itoa v1.0.18
+  Downloaded ipnet v2.12.2
+  Downloaded libc v0.2.190
+  Downloaded litemap v0.8.3
+  Downloaded lock_api v0.4.14
+  Downloaded log v0.4.34
+  Downloaded lru-slab v0.1.3
+  Downloaded mime v0.3.17
+  Downloaded memchr v2.8.3
+  Downloaded linux-raw-sys v0.12.1
+  Downloaded matchers v0.2.0
+  Downloaded nix v0.26.4
+  Downloaded once_cell v1.21.4
+  Downloaded matchit v0.8.4
+  Downloaded nix v0.31.3
+  Downloaded nu-ansi-term v0.50.3
+  Downloaded parking_lot v0.12.5
+  Downloaded parking_lot_core v0.9.12
+  Downloaded percent-encoding v2.3.2
+  Downloaded pin-project-lite v0.2.17
+  Downloaded potential_utf v0.1.6
+  Downloaded ppv-lite86 v0.2.21
+  Downloaded mio-serial v5.0.7
+  Downloaded proc-macro2 v1.0.107
+  Downloaded mio v1.2.4
+  Downloaded rand_chacha v0.9.0
+  Downloaded rand v0.9.5
+  Downloaded rand_pcg v0.10.2
+  Downloaded rand v0.10.3
+  Downloaded quinn-proto v0.11.19
+  Downloaded quote v1.0.47
+  Downloaded quinn v0.11.12
+  Downloaded rand_core v0.9.5
+  Downloaded quinn-udp v0.5.16
+  Downloaded rand_core v0.10.1
+  Downloaded regex-syntax v0.8.11
+  Downloaded reqwest v0.12.28
+  Downloaded regex-automata v0.4.18
+  Downloaded rustc-hash v2.1.3
+  Downloaded rustix v1.1.5
+  Downloaded rustls v0.23.45
+  Downloaded rustls-pki-types v1.15.1
+  Downloaded ryu v1.0.23
+  Downloaded ring v0.17.14
+  Downloaded rustls-webpki v0.103.15
+  Downloaded scopeguard v1.2.0
+  Downloaded serde_core v1.0.229
+  Downloaded serde_derive v1.0.229
+  Downloaded serde v1.0.229
+  Downloaded sha1 v0.10.7
+  Downloaded serde_json v1.0.154
+  Downloaded serde_path_to_error v0.1.20
+  Downloaded sharded-slab v0.1.7
+  Downloaded serde_urlencoded v0.7.1
+  Downloaded serde_spanned v0.6.9
+  Downloaded serialport v4.10.1
+  Downloaded signal-hook-registry v1.4.8
+  Downloaded shlex v2.0.1
+  Downloaded smallvec v1.16.3
+  Downloaded sha2 v0.10.9
+  Downloaded slab v0.4.12
+  Downloaded stable_deref_trait v1.2.1
+  Downloaded syn v2.0.119
+  Downloaded syn v3.0.9
+  Downloaded sync_wrapper v1.0.2
+  Downloaded subtle v2.6.1
+  Downloaded strsim v0.11.1
+  Downloaded synstructure v0.14.0
+  Downloaded thiserror-impl v2.0.21
+  Downloaded socket2 v0.6.5
+  Downloaded tempfile v3.27.0
+  Downloaded tinystr v0.8.4
+  Downloaded thread_local v1.1.10
+  Downloaded thiserror v2.0.21
+  Downloaded tokio-rustls v0.26.6
+  Downloaded tinyvec v1.13.3
+  Downloaded tokio-macros v2.7.2
+  Downloaded tokio-serial v5.5.0
+  Downloaded tokio-tungstenite v0.29.0
+  Downloaded tokio v1.53.2
+  Downloaded tokio-util v0.7.20
+  Downloaded toml_datetime v0.6.11
+  Downloaded toml v0.8.23
+  Downloaded toml_edit v0.22.27
+  Downloaded toml_write v0.1.2
+  Downloaded tower-service v0.3.3
+  Downloaded tower v0.5.3
+  Downloaded tower-layer v0.3.3
+  Downloaded tower-http v0.6.11
+  Downloaded try-lock v0.2.5
+  Downloaded unescaper v0.1.10
+  Downloaded tracing-log v0.2.0
+  Downloaded tracing-core v0.1.36
+  Downloaded tungstenite v0.29.0
+  Downloaded tracing v0.1.44
+  Downloaded untrusted v0.9.0
+  Downloaded utf8parse v0.2.2
+  Downloaded want v0.3.2
+  Downloaded typenum v1.20.1
+  Downloaded unicode-ident v1.0.27
+  Downloaded writeable v0.6.4
+  Downloaded tracing-subscriber v0.3.23
+  Downloaded url v2.5.8
+  Downloaded utf8_iter v1.0.4
+  Downloaded uuid v1.28.0
+  Downloaded version_check v0.9.5
+  Downloaded webpki-roots v1.0.9
+  Downloaded winnow v0.7.15
+  Downloaded yoke v0.8.3
+  Downloaded zmij v1.0.23
+  Downloaded zerofrom-derive v0.1.8
+  Downloaded zerovec-derive v0.11.6
+  Downloaded yoke-derive v0.8.4
+  Downloaded zerocopy v0.8.62
+  Downloaded zerofrom v0.1.8
+  Downloaded zeroize v1.9.1
+  Downloaded zerovec v0.11.8
+  Downloaded zerotrie v0.2.5
+  Downloaded anstream v1.0.0
+  Downloaded anstyle-parse v1.0.0
+  Downloaded anstyle v1.0.14
+  Downloaded base64 v0.22.1
+  Downloaded anstyle-query v1.1.5
+  Downloaded atomic-waker v1.1.2
+  Downloaded axum-core v0.5.6
+  Downloaded anyhow v1.0.104
+  Downloaded axum v0.8.9
+  Downloaded bitflags v1.3.2
+  Downloaded base64 v0.23.1
+  Downloaded block-buffer v0.10.4
+  Downloaded clap_derive v4.6.7
+  Downloaded clap_lex v1.1.1
+  Downloaded cc v1.8.0
+  Downloaded chacha20 v0.10.2
+  Downloaded colorchoice v1.0.5
+  Downloaded cpufeatures v0.2.17
+  Downloaded bytes v1.12.1
+  Downloaded cpufeatures v0.3.1
+  Downloaded clap v4.6.7
+  Downloaded cfg_aliases v0.2.2
+  Downloaded crc32fast v1.5.2
+  Downloaded data-encoding v2.11.1
+  Downloaded clap_builder v4.6.7
+  Downloaded cfg-if v1.0.5
+  Downloaded crypto-common v0.1.7
+  Downloaded digest v0.10.7
+  Downloaded equivalent v1.0.2
+  Downloaded fastrand v2.5.0
+  Downloaded bitflags v2.13.2
+  Downloaded errno v0.3.14
+  Downloaded find-msvc-tools v0.1.14
+  Downloaded futures-channel v0.3.34
+  Downloaded futures-io v0.3.34
+  Downloaded futures-core v0.3.34
+  Downloaded futures-sink v0.3.34
+  Downloaded futures-macro v0.3.34
+  Downloaded displaydoc v0.2.7
+  Downloaded futures-task v0.3.34
+  Downloaded generic-array v0.14.7
+  Downloaded futures-util v0.3.34
+  Downloaded getrandom v0.4.3
+  Downloaded getrandom v0.2.17
+  Downloaded hashbrown v0.17.1
+  Downloaded heck v0.5.0
+  Downloaded http v1.5.0
+  Downloaded httparse v1.10.1
+  Downloaded form_urlencoded v1.2.2
+  Downloaded http-body v1.1.0
+  Downloaded icu_collections v2.3.0
+  Downloaded hyper v1.12.0
+  Downloaded getrandom v0.3.4
+  Downloaded hyper-util v0.1.21
+  Downloaded httpdate v1.0.3
+  Downloaded hyper-rustls v0.27.10
+  Downloaded tracing-attributes v0.1.31
+  Downloaded icu_locale_core v2.3.0
+  Downloaded http-body-util v0.1.5
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling libc v0.2.190
+   Compiling cfg-if v1.0.5
+   Compiling serde_core v1.0.229
+   Compiling serde v1.0.229
+   Compiling smallvec v1.16.3
+   Compiling log v0.4.34
+   Compiling pin-project-lite v0.2.17
+   Compiling scopeguard v1.2.0
+   Compiling syn v3.0.9
+   Compiling itoa v1.0.18
+   Compiling futures-core v0.3.34
+   Compiling parking_lot_core v0.9.12
+   Compiling stable_deref_trait v1.2.1
+   Compiling once_cell v1.21.4
+   Compiling lock_api v0.4.14
+   Compiling mio v1.2.4
+   Compiling errno v0.3.14
+   Compiling parking_lot v0.12.5
+   Compiling signal-hook-registry v1.4.8
+   Compiling socket2 v0.6.5
+   Compiling version_check v0.9.5
+   Compiling tracing-core v0.1.36
+   Compiling generic-array v0.14.7
+   Compiling syn v2.0.119
+   Compiling find-msvc-tools v0.1.14
+   Compiling shlex v2.0.1
+   Compiling futures-sink v0.3.34
+   Compiling cc v1.8.0
+   Compiling futures-task v0.3.34
+   Compiling thiserror v2.0.21
+   Compiling httparse v1.10.1
+   Compiling slab v0.4.12
+   Compiling writeable v0.6.4
+   Compiling litemap v0.8.3
+   Compiling typenum v1.20.1
+   Compiling synstructure v0.14.0
+   Compiling ring v0.17.14
+   Compiling icu_normalizer_data v2.3.0
+   Compiling zerocopy v0.8.62
+   Compiling utf8_iter v1.0.4
+   Compiling percent-encoding v2.3.2
+   Compiling getrandom v0.3.4
+   Compiling bitflags v2.13.2
+   Compiling icu_properties_data v2.3.0
+   Compiling serde_derive v1.0.229
+   Compiling zerofrom-derive v0.1.8
+   Compiling yoke-derive v0.8.4
+   Compiling zerofrom v0.1.8
+   Compiling zerovec-derive v0.11.6
+   Compiling yoke v0.8.3
+   Compiling tokio-macros v2.7.2
+   Compiling displaydoc v0.2.7
+   Compiling zerovec v0.11.8
+   Compiling tracing-attributes v0.1.31
+   Compiling futures-macro v0.3.34
+   Compiling tinystr v0.8.4
+   Compiling icu_locale_core v2.3.0
+   Compiling futures-util v0.3.34
+   Compiling bytes v1.12.1
+   Compiling tracing v0.1.44
+   Compiling potential_utf v0.1.6
+   Compiling zerotrie v0.2.5
+   Compiling http v1.5.0
+   Compiling tokio v1.53.2
+   Compiling thiserror-impl v2.0.21
+   Compiling http-body v1.1.0
+   Compiling icu_provider v2.3.1
+   Compiling icu_collections v2.3.0
+   Compiling tower-service v0.3.3
+   Compiling zeroize v1.9.1
+   Compiling rustls-pki-types v1.15.1
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling getrandom v0.2.17
+   Compiling try-lock v0.2.5
+   Compiling untrusted v0.9.0
+   Compiling want v0.3.2
+   Compiling digest v0.10.7
+   Compiling icu_properties v2.3.0
+   Compiling rand_core v0.9.5
+   Compiling icu_normalizer v2.3.0
+   Compiling form_urlencoded v1.2.2
+   Compiling sync_wrapper v1.0.2
+   Compiling atomic-waker v1.1.2
+   Compiling cfg_aliases v0.2.2
+   Compiling rustls v0.23.45
+   Compiling httpdate v1.0.3
+   Compiling tower-layer v0.3.3
+   Compiling ppv-lite86 v0.2.21
+   Compiling cpufeatures v0.2.17
+   Compiling zmij v1.0.23
+   Compiling hyper v1.12.0
+   Compiling nix v0.31.3
+   Compiling rand_chacha v0.9.0
+   Compiling idna_adapter v1.2.2
+   Compiling rustls-webpki v0.103.15
+   Compiling futures-channel v0.3.34
+   Compiling serde_json v1.0.154
+   Compiling utf8parse v0.2.2
+   Compiling base64 v0.23.1
+   Compiling bitflags v1.3.2
+   Compiling getrandom v0.4.3
+   Compiling ipnet v2.12.2
+   Compiling subtle v2.6.1
+   Compiling hyper-util v0.1.21
+   Compiling nix v0.26.4
+   Compiling anstyle-parse v1.0.0
+   Compiling idna v1.1.0
+   Compiling rand v0.9.5
+   Compiling sha1 v0.10.7
+   Compiling tower v0.5.3
+   Compiling unescaper v0.1.10
+   Compiling http-body-util v0.1.5
+   Compiling regex-syntax v0.8.11
+   Compiling ryu v1.0.23
+   Compiling data-encoding v2.11.1
+   Compiling anstyle v1.0.14
+   Compiling hashbrown v0.17.1
+   Compiling anstyle-query v1.1.5
+   Compiling memchr v2.8.3
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling equivalent v1.0.2
+   Compiling colorchoice v1.0.5
+   Compiling anstream v1.0.0
+   Compiling tokio-rustls v0.26.6
+   Compiling indexmap v2.14.2
+   Compiling regex-automata v0.4.18
+   Compiling tungstenite v0.29.0
+   Compiling serde_urlencoded v0.7.1
+   Compiling serialport v4.10.1
+   Compiling url v2.5.8
+   Compiling webpki-roots v1.0.9
+   Compiling toml_datetime v0.6.11
+   Compiling serde_spanned v0.6.9
+   Compiling winnow v0.7.15
+   Compiling clap_lex v1.1.1
+   Compiling base64 v0.22.1
+   Compiling strsim v0.11.1
+   Compiling toml_write v0.1.2
+   Compiling mime v0.3.17
+   Compiling crc32fast v1.5.2
+   Compiling anyhow v1.0.104
+   Compiling heck v0.5.0
+   Compiling lazy_static v1.5.1
+   Compiling sharded-slab v0.1.7
+   Compiling clap_derive v4.6.7
+   Compiling axum-core v0.5.6
+   Compiling toml_edit v0.22.27
+   Compiling clap_builder v4.6.7
+   Compiling hyper-rustls v0.27.10
+   Compiling mio-serial v5.0.7
+   Compiling tower-http v0.6.11
+   Compiling matchers v0.2.0
+   Compiling tokio-tungstenite v0.29.0
+   Compiling tokio-util v0.7.20
+   Compiling tracing-log v0.2.0
+   Compiling serde_path_to_error v0.1.20
+   Compiling thread_local v1.1.10
+   Compiling nu-ansi-term v0.50.3
+   Compiling rustix v1.1.5
+   Compiling matchit v0.8.4
+   Compiling axum v0.8.9
+   Compiling tracing-subscriber v0.3.23
+   Compiling clap v4.6.7
+   Compiling reqwest v0.12.28
+   Compiling toml v0.8.23
+   Compiling tokio-serial v5.5.0
+   Compiling uuid v1.28.0
+   Compiling sha2 v0.10.9
+   Compiling linux-raw-sys v0.12.1
+   Compiling fastrand v2.5.0
+   Compiling serialbridge-core v0.1.0-alpha.1 (/workspace/SerialBridge-dev/crates/core)
+warning: unused import: `Deserialize`
+ --> crates/core/src/transfer.rs:6:13
+  |
+6 | use serde::{Deserialize,Serialize};
+  |             ^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling tempfile v3.27.0
+warning: `serialbridge-core` (lib) generated 1 warning (run `cargo fix --lib -p serialbridge-core` to apply 1 suggestion)
+warning: `serialbridge-core` (lib test) generated 1 warning (1 duplicate)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 01s
+     Running unittests src/lib.rs (target/debug/deps/serialbridge_core-a20818c3d3ccbcdf)
+
+running 12 tests
+test config::tests::rejects_traversal_and_reserved_names ... ok
+test extension::tests::extension_origin_is_strict ... ok
+test config::tests::exact_origins_only ... ok
+test config::tests::default_configuration_is_deny_by_default ... ok
+test extension::tests::token_check_rejects_empty_and_different_strings ... ok
+test http_executor::tests::policy_rejects_suffix_and_credential_headers ... ok
+test protocol::tests::crc_failure_is_not_silently_accepted ... ok
+test protocol::tests::oversized_header_is_rejected_before_allocation ... ok
+test protocol::tests::noise_can_be_resynchronized ... ok
+test protocol::tests::fragmented_and_binary_roundtrip ... ok
+test transfer::tests::upload_enforces_offsets_and_hash ... ok
+test transfer::tests::empty_file_hash_is_verified ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/serialbridge-c2ff52c776363c5b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/integration.rs (target/debug/deps/integration-aeb702f1c1ac3f3e)
+
+running 4 tests
+test unknown_method_is_explicit_not_a_placeholder_success ... ok
+test foreign_web_origin_is_rejected_even_with_token ... ok
+test private_api_requires_token ... ok
+test nodes_can_call_each_other_concurrently_over_the_same_stream ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+   Doc-tests serialbridge_core
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
