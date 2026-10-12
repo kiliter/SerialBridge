@@ -116,11 +116,13 @@ async fn export_logs(state: State<'_, Desktop>) -> Result<Value, String> {
 fn main() {
     let application = tauri::Builder::default()
         .setup(|app| {
+            eprintln!("SerialBridge: starting embedded Core");
             let node = tauri::async_runtime::block_on(serialbridge_core::start(
                 config::default_path(),
                 TransportMode::Serial,
             ))?;
             let port = node.cfg().http_port;
+            eprintln!("SerialBridge: Core listening on 127.0.0.1:{port}");
             app.manage(Desktop { node, port });
             let show = MenuItem::with_id(app, "show", "显示控制台", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "退出 SerialBridge", true, None::<&str>)?;

@@ -92,7 +92,7 @@ jobs:
         shell: bash
         run: |
           if [ "$RUNNER_OS" = Linux ]; then
-            xvfb-run -a python tests/desktop_smoke.py target/release/serialbridge-desktop
+            NO_AT_BRIDGE=1 GDK_BACKEND=x11 dbus-run-session -- xvfb-run -a python tests/desktop_smoke.py target/release/serialbridge-desktop
           elif [ "$RUNNER_OS" = macOS ]; then
             python tests/desktop_smoke.py target/universal-apple-darwin/release/serialbridge-desktop
           else
