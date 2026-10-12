@@ -19,3 +19,9 @@ No framework, database, resume protocol, encryption redesign or speculative refa
 ## CI follow-up
 
 The first CI run exposed the Node 22 experimental-option spelling, corrected and verified with 20 actual tests on both Node 22 and 24. The next run passed Windows/macOS builds and native startup smoke, but Linux reproduced an I/O race: quota scanning read metadata for a part file concurrently deleted by disconnect cleanup. The local diagnostic confirmed ENOENT; only vanished entries are skipped, retaining all other I/O failures and quota limits. The original regression then passed ten consecutive runs. Post-registration session checks and a stale-session regression cover late resource creation across disconnect. The full local suite now passes **47 Core tests**, Clippy and 21 live process/UI checks. This follow-up was self-checked and tested, not labelled as another independent review.
+
+## Final remote verification
+
+Run [38285139819](https://github.com/kiliter/SerialBridge/actions/runs/38285139819) for source commit `8c03980721400d44607e3cd03ea75c0e504ca909` completed successfully: Linux, macOS, Windows and prerelease publication. Each platform ran Core/Node/headless integration and native startup. Linux also passed all 25 actual Chromium extension/live UI flow checks. Linux startup required a proper headless desktop session (D-Bus + Xvfb); the CI accessibility bridge is disabled, while normal app security and normal user environments remain unchanged.
+
+All four Actions artifact groups are present. Five package files (Windows, macOS universal, two Linux formats and Chrome ZIP) plus SHA256SUMS were published. GitHub's package asset digests match every published checksum; the downloaded Chrome ZIP also passed its own checksum, archive integrity and root-manifest checks. The final documentation commit adds this evidence without changing the tested product source.

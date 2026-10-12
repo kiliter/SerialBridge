@@ -31,10 +31,10 @@
 
 **Files:** `Cargo.lock`, `package-lock.json`, Rust manifests only when compiler evidence requires a correction.
 
-- [ ] Install a minimal stable Rust toolchain and npm development dependencies.
-- [ ] Run `npm test` and `cargo test -p serialbridge-core -j 4`; preserve initial errors.
-- [ ] Fix compiler defects minimally, then rerun the affected suite.
-- [ ] Retain lockfiles and record versions and exact baseline commands.
+- [x] Install a minimal stable Rust toolchain and npm development dependencies.
+- [x] Run `npm test` and `cargo test -p serialbridge-core -j 4`; preserve initial errors.
+- [x] Fix compiler defects minimally, then rerun the affected suite.
+- [x] Retain lockfiles and record versions and exact baseline commands.
 
 ### Task 2: Core lifecycle and transfer regression coverage
 
@@ -42,10 +42,10 @@
 
 **Interfaces:** Consume existing `Node::call`, `transport::session`, upload/read/finish/remove methods and `api::router`; retain current public API shapes.
 
-- [ ] Add tests for frame boundaries, auth/settings, HTTP policies, RPC timeout/disconnect and concurrent calls.
-- [ ] Add binary transfer tests for empty/multiple chunks, push/pull, checksum failure, cancel and quota/concurrency release.
-- [ ] For each discovered defect, run a reproducing test before fixing, then run all Core tests.
-- [ ] Format touched Rust and run compiler/lint checks; commit verified fixes and tests.
+- [x] Add tests for frame boundaries, auth/settings, HTTP policies, RPC timeout/disconnect and concurrent calls.
+- [x] Add binary transfer tests for empty/multiple chunks, push/pull, checksum failure, cancel and quota/concurrency release.
+- [x] For each discovered defect, run a reproducing test before fixing, then run all Core tests.
+- [x] Format touched Rust and run compiler/lint checks; commit verified fixes and tests.
 
 ### Task 3: Software end-to-end flows
 
@@ -53,35 +53,35 @@
 
 **Interfaces:** Two independent configs/headless nodes, loopback HTTP/TCP, browser WebSocket messages from `docs/PROTOCOL.md`.
 
-- [ ] Start two real headless processes, exercise authenticated bidirectional RPC, HTTP download, push/pull and cancellation against local fixture content.
-- [ ] Exercise real Core WebSocket pairing/authentication, browser fetch, binary download and revoke/disconnect.
-- [ ] Run existing Node and DOM suites; add a browser smoke test against actual Core and extension where supported by the environment.
-- [ ] Preserve commands and distinguish integration coverage from hardware/site-login validation.
+- [x] Start two real headless processes, exercise authenticated bidirectional RPC, HTTP download, push/pull and cancellation against local fixture content.
+- [x] Exercise real Core WebSocket pairing/authentication, browser fetch, binary download and revoke/disconnect.
+- [x] Run existing Node and DOM suites; add a browser smoke test against actual Core and extension where supported by the environment.
+- [x] Preserve commands and distinguish integration coverage from hardware/site-login validation.
 
 ### Task 4: Desktop and release workflow
 
 **Files:** `.github/workflows/`, `crates/desktop/`, `scripts/`, `package.json` and release documentation.
 
-- [ ] Install required Linux native development libraries and run `cargo check -p serialbridge-desktop`.
-- [ ] Build Chrome ZIP from actual generated extension assets with manifest at its root.
-- [ ] Configure locked CI tests before packaging; build Windows NSIS, macOS universal DMG and Linux DEB/AppImage as platform artifact groups.
-- [ ] Configure four named Actions artifacts and a prerelease containing installers and extension ZIP.
-- [ ] Validate workflow syntax and locally build/check feasible packages.
+- [x] Install required Linux native development libraries and run `cargo check -p serialbridge-desktop`.
+- [x] Build Chrome ZIP from actual generated extension assets with manifest at its root.
+- [x] Configure locked CI tests before packaging; build Windows NSIS, macOS universal DMG and Linux DEB/AppImage as platform artifact groups.
+- [x] Configure four named Actions artifacts and a prerelease containing installers and extension ZIP.
+- [x] Validate workflow syntax and locally build/check feasible packages.
 
 ### Task 5: Review and final verification
 
 **Files:** review evidence, delivery status and README.
 
-- [ ] Obtain an independent review of the complete source and diff; resolve critical/important findings with reproducing tests.
-- [ ] Run complete Rust/Node/integration/browser checks and desktop build; retain actual logs.
-- [ ] Update current delivery status, review record and build/installation instructions; regenerate manifest if retained.
-- [ ] Commit the verified source and inspect tracked contents for secrets or machine paths.
+- [x] Obtain an independent review of the complete source and diff; resolve critical/important findings with reproducing tests.
+- [x] Run complete Rust/Node/integration/browser checks and desktop build; retain actual logs.
+- [x] Update current delivery status, review record and build/installation instructions; regenerate manifest if retained.
+- [x] Commit the verified source and inspect tracked contents for secrets or machine paths.
 
 ### Task 6: Publish and inspect four artifact groups
 
 **Files:** GitHub repository and Actions runs, no unrelated repositories.
 
-- [ ] Push reviewed source to `kiliter/SerialBridge`; no force pushes or unrelated remote changes.
-- [ ] Run CI/package workflow; inspect failures and fix until requested automated jobs pass.
-- [ ] Verify all four artifact groups exist and release links point to the matching build.
-- [ ] Report actual test counts, commit/run/release links and remaining physical/platform limitations.
+- [x] Push reviewed source to `kiliter/SerialBridge`; no force pushes or unrelated remote changes.
+- [x] Run CI/package workflow; inspect failures and fix until requested automated jobs pass.
+- [x] Verify all four artifact groups exist and release links point to the matching build.
+- [x] Report actual test counts, commit/run/release links and remaining physical/platform limitations.

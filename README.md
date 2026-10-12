@@ -4,6 +4,8 @@
 请先阅读根目录 `SerialBridge-Delivery-Status.md`。Core 单元/集成测试、真实同机双节点和 live UI 流程已在本地执行。三平台安装包及真实 Chromium 扩展由 GitHub Actions 检查和构建，结果以对应运行记录为准。
 下载与平台说明见 [GitHub Releases](https://github.com/kiliter/SerialBridge/releases) 和 [docs/RELEASE.md](docs/RELEASE.md)。FT232RL 双机链路与网站登录态仍需实机验收。
 
+当前已验证发布：[Alpha 2](https://github.com/kiliter/SerialBridge/releases/tag/v0.1.0-alpha.2-8c03980)；[成功构建记录](https://github.com/kiliter/SerialBridge/actions/runs/38285139819)。包含 Windows、macOS universal、Linux 和 Chrome 扩展四个制品组。
+
 ## 包含什么
 
 - `crates/core`：Rust 对等节点库与 `serialbridge` 命令行程序。两个节点都提供 loopback HTTP API；没有固定 Mac/Win 或 Host/Client 方向。

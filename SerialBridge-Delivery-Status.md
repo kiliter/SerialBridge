@@ -2,7 +2,11 @@
 
 **版本：** `0.1.0-alpha.2`
 **日期：** 2026-10-12
-**阶段：** 在实际 Alpha 1 源码基础上继续开发、补测试并准备三平台构建。
+**阶段：** 开发、单元/软件流程测试、独立 review、三平台原生启动与四类制品发布已完成；保持 Alpha 实机验收边界。
+
+**已发布：** [v0.1.0-alpha.2-8c03980](https://github.com/kiliter/SerialBridge/releases/tag/v0.1.0-alpha.2-8c03980)。
+**对应构建提交：** `8c03980721400d44607e3cd03ea75c0e504ca909`。
+**成功 Actions：** [38285139819](https://github.com/kiliter/SerialBridge/actions/runs/38285139819)。该运行的 Windows、macOS、Linux 及发布作业全部成功。
 
 ## 已执行的本地验证
 
@@ -15,7 +19,9 @@
 | UI demo/HTTP fixture smoke | 9 项通过 | 明确使用模拟 API，不算真实 Core 联调 |
 | 离线 UI DOM | 7 项通过 | 原生命令测试替身，不算原生桌面测试 |
 | 扩展 ZIP 检查 | 2 项通过 | ZIP 根目录 manifest、引用产物、可重复字节输出、缺少构建产物时失败 |
-| Actions 配置 | actionlint 通过 | 配置检查，不等于远程工作流已经通过 |
+| 三平台 Actions | 全部通过 | Core/Node、headless 流程、Tauri 编译、安装包与实际原生进程启动 |
+| 实际 Chromium 扩展 + live UI | 25 项通过 | 两个真实 Core、实际 MV3 扩展、浏览器请求/下载/撤销和完整性验证 |
+| 发布制品与校验 | 通过 | 四个制品组均存在；五个安装/扩展文件的 GitHub digest 与 SHA256SUMS 一致 |
 
 本地证据存放于 `docs/verification/alpha2/`。Alpha 1 的旧日志保留为历史记录，不能替代 Alpha 2 的验证。
 
@@ -38,9 +44,9 @@
 
 `.github/workflows/check.yml` 在 Windows、macOS 和 Linux 分别运行 Node/Core 检查与真实双进程流程，然后编译 Tauri、生成安装包并启动实际桌面进程检查嵌入 Core。
 
-Linux 还执行 `tests/e2e.py --extension`，加载实际 Chromium MV3 扩展，验证配对、对端 browser.fetch、浏览器下载经 Core/peer 到达接收端、SHA-256 和撤销配对。**只有该 CI 步骤实际通过，才计为真实扩展验证。**
+Linux 实际执行并通过了 `tests/e2e.py --extension`，加载实际 Chromium MV3 扩展，验证配对、对端 browser.fetch、浏览器下载经 Core/peer 到达接收端、SHA-256 和撤销配对。原生启动检查使用独立 D-Bus 会话和 Xvfb，未将桌面测试模拟成 API 测试替身。
 
-当前开发云环境禁止安装自定义浏览器扩展，且无法以 root 安装 WebKitGTK/GTK 开发库；本地 Tauri check 因缺少 glib/GTK 系统开发库失败，未声称它已通过。对应平台结果以 [GitHub Actions](https://github.com/kiliter/SerialBridge/actions) 中匹配构建提交的运行记录为准。
+开发云环境禁止安装自定义浏览器扩展，且无法以 root 安装 WebKitGTK/GTK 开发库；该环境的 Tauri check 因缺少系统库失败记录仍保留。随后三个正常 CI 平台均实际编译并启动了桌面进程，真实扩展由 Linux CI 验证。没有修改开发云环境的管理策略。
 
 四类 Actions 制品：
 
@@ -49,7 +55,7 @@ Linux 还执行 `tests/e2e.py --extension`，加载实际 Chromium MV3 扩展，
 - `SerialBridge-Linux`：x64 DEB 与 AppImage。
 - `SerialBridge-Chrome`：ZIP 根目录包含 manifest.json 的未打包扩展。
 
-只有三个平台作业全部成功，发布作业才会生成对应提交的 Alpha prerelease 和 SHA256SUMS。Linux 的两个格式属于同一平台制品组。安装与限制见 `docs/RELEASE.md`。
+三个平台作业全部成功后，发布作业已生成对应提交的 Alpha prerelease 和 SHA256SUMS。Linux 的两个格式属于同一平台制品组。还下载检查了发布后的 Chrome ZIP，确认其校验值、ZIP 完整性与根目录 manifest/引用文件均正确。安装与限制见 `docs/RELEASE.md`。
 
 ## Review 与复现
 
