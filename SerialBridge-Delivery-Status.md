@@ -8,7 +8,7 @@
 
 | 检查 | 实际结果 | 范围 |
 |---|---|---|
-| Rust Core 单元/集成测试 | 41 通过、0 失败 | 配置、分帧、API、真实 HTTP/WebSocket、RPC、文件传输及异常状态 |
+| Rust Core 单元/集成测试 | 46 通过、0 失败 | 配置、分帧、API、真实 HTTP/WebSocket、RPC、文件传输及异常状态 |
 | Rust fmt / Core Clippy | 通过，Clippy 使用 `-D warnings` | 包含 Core 所有测试目标 |
 | TypeScript 构建 / Node 测试 | 20 通过、0 失败 | 扩展策略/生命周期与 UI 模型；Chrome API 使用测试替身 |
 | 真实双节点和 live UI | 21 项通过 | 两个独立 headless 进程、loopback TCP、真实 HTTP/Core API 和 Chromium UI，无 API 拦截 |
@@ -27,6 +27,8 @@
 4. 创建或发布上传文件发生 I/O 错误时，任务进入失败终态并释放容量，避免永久显示进行中。
 5. 补齐 API 配置保存/拒绝、真实 HTTP 限制与超时、WebSocket 配对/锁定/撤销/二进制 ACK、文件分块/校验/清理等回归测试。
 6. 保留真实依赖锁文件；Node 测试明确在同一隔离上下文执行，确保当前 Node 环境报告实际 20 项测试而非仅报告四个文件。
+7. 独立 review 后补充会话归属：断线只取消该对端会话的未完成任务并释放共享句柄，保留独立本机工作和已完成源缓存。
+8. 上传最终落盘期间仍保留可取消/清理的句柄；拉取的对端句柄清理移到可取消分支之外，解决取消后的资源泄漏。
 
 上述产品缺陷均有修复前失败、修复后通过的测试记录。保留已有架构、四页面 UI 和有界单块应答传输；没有添加数据库、续传、滑动窗口、远程 shell 或新权限模型。
 
@@ -49,7 +51,7 @@ Linux 还执行 `tests/e2e.py --extension`，加载实际 Chromium MV3 扩展，
 
 ## Review 与复现
 
-开发采用独立分支；推送前进行独立代码 review，报告及修复证据见 `docs/verification/REVIEW.md`。实际最终结果以该报告为准，不能把预定 review 当成已完成。
+开发采用独立分支；已完成一次独立代码 review。没有 Critical 问题，发现的三项 Important 生命周期问题均已用失败测试复现并修复，随后完整 Core、Node、真实双节点/UI 测试通过。报告及修复证据见 `docs/verification/REVIEW.md`。
 
 ```bash
 npm ci

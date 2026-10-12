@@ -279,7 +279,7 @@ impl Node {
             })?
             .map_err(|_| BridgeError::new("PEER_DISCONNECTED", "Peer disconnected"))?
     }
-    pub fn peer_lost(&self, epoch: Uuid) {
+    pub fn peer_lost(self: &Arc<Self>, epoch: Uuid) {
         {
             let mut p = self.peer.lock().unwrap();
             if p.as_ref().is_some_and(|p| p.epoch == epoch) {
@@ -287,12 +287,33 @@ impl Node {
             }
         }
         self.pending.lock().unwrap().retain(|_, p| p.epoch != epoch);
+        let jobs = self.transfers.cancel_peer(epoch);
+        let node = self.clone();
+        tokio::spawn(async move {
+            for id in jobs {
+                let _ = node.cancel_transfer(id).await;
+            }
+        });
         self.log(
             "warn",
             "serial",
             "Peer disconnected; pending requests failed, no automatic replay",
             epoch,
         );
+    }
+    pub(crate) async fn execute_peer(
+        self: &Arc<Self>,
+        epoch: Uuid,
+        method: String,
+        params: Value,
+        data: Bytes,
+    ) -> Result<Reply> {
+        match method.as_str() {
+            "download.start" => self.start_source_download_owned(params, Some(epoch)),
+            "file.create" => self.create_upload_owned(params, Some(epoch)).await,
+            "file.open" => self.open_shared_owned(params, Some(epoch)).await,
+            _ => self.execute_local(method, params, data).await,
+        }
     }
     pub fn execute_local<'a>(
         self: &'a Arc<Self>,

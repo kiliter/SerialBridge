@@ -1,18 +1,17 @@
-# 本次源码检查记录
+# Alpha 2 independent code review
 
-这是编写者自己的接口与边界检查，不是独立第三方 code review，也没有伪称分派过评审代理。
+Reviewed baseline `6aa7dcf` through implementation `d02de72`, including the existing Core, transfer/browser lifecycle, tests and release workflow. A fresh independent reviewer checked the complete current source, not only formatting changes. No Critical findings; three Important findings required fixes before push. No Minor findings were reported.
 
-已在代码中核对/调整：
+## Findings and verified repairs
 
-- 实际监听端口与已保存但待重启端口分离，扩展配对保存配置不回滚端口设置。
-- peer 会话改变和断线清理 pending，过期回包不能匹配新会话。
-- 串口请求/响应超过帧上限时返回明确错误，不把大文件放进 JSON。
-- 扩展异步权限检查完成后再次检查取消，避免断线后继续请求。
-- 浏览器每文件只有一个未确认二进制块；确认必须匹配 ID/offset。
-- 上传准入采用 semaphore，避免并发长度检查造成无限创建临时文件。
-- 本机暂存、对端接收、下载、串口传输分开标记进度。
-- 文件名拒绝目录穿越、Windows 保留名、控制字符等；不自动覆盖既有文件。
-- 远端扩展状态只在 peer 在线时可显示在线。
-- UI 在连接失败后不回退演示；日志文本经过 HTML 转义。
+1. **Peer disconnect retained uploads and source-download tasks.** The reviewer reproduced two lingering uploads, BUSY after reconnect, and a source download that continued after its requester disconnected. Peer-created jobs and shared handles now carry their session ownership. Disconnect cancels that session's unfinished work and releases its shared handles. Local uploads/downloads and completed source caches are preserved.
+2. **Cancelled finalization removed the only cleanup handle.** The reviewer deterministically dropped file.finish while pending and found an unreapable running job/part file. Finalization now keeps its upload in the map until completion/error, so cancellation and the reaper can still close/delete it. A controlled mutex wait reproduces the cancellation boundary without filesystem timing assumptions.
+3. **Cancelled file pull skipped remote handle removal.** The reviewer demonstrated that cancel during serial_transfer consumed one of the peer's 200 artifact handles. Remote handle cleanup now runs outside the cancellable branch, and disconnect also releases session-owned shared handles without deleting shared originals.
 
-这些检查不能证明 Rust 编译、平台兼容性、串口可靠性或安全性。Rust 仍可能有编译错误、异步边界缺陷或其他未发现问题，必须运行源码中提供的测试并进行实机联调。不得把此记录当作 release approval。
+`alpha2/review-red.log` records four failing regression cases before these changes. After correction, full Core verification reports **46 passing tests, 0 failed**; Core all-target Clippy with `-D warnings`, Node's 20 tests, the 21 real headless/live UI checks and both ZIP tests also pass. The additional preservation test verifies a completed peer source cache remains accessible after disconnect.
+
+The final fix pass was performed by the implementer and verified using reproducing tests and complete suites. It was not presented as a second independent review. Native platform builds/startup and actual Chromium extension execution are checked by normal CI, because the development environment lacks native development libraries and blocks unpacked extensions.
+
+## Scope decisions
+
+No framework, database, resume protocol, encryption redesign or speculative refactor was added. Tests distinguish actual Core/local HTTP/TCP/WebSocket flows from Chrome API doubles, and do not claim physical serial acceptance or publisher signing/notarization. The four platform artifact groups retain two useful Linux package formats in one group.

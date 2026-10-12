@@ -70,3 +70,101 @@ async fn disconnected_nodes_fail_pending_requests_and_clear_peer_state() {
         .unwrap_err();
     assert_eq!(err.code, "PEER_DISCONNECTED");
 }
+
+#[tokio::test]
+async fn peer_disconnect_releases_its_upload_but_preserves_local_upload() {
+    let mut pair = Pair::new(1024).await;
+    let local = pair
+        .b
+        .node
+        .create_upload(json!({"filename":"local.bin","total_bytes":10,"local_staging":true}))
+        .await
+        .unwrap();
+    let remote = pair
+        .a
+        .node
+        .peer_call(
+            "file.create",
+            json!({"filename":"peer.bin","total_bytes":10}),
+            Bytes::new(),
+            5000,
+        )
+        .await
+        .unwrap();
+    let remote_id = uuid::Uuid::parse_str(remote.value["id"].as_str().unwrap()).unwrap();
+    let local_id = uuid::Uuid::parse_str(local.value["id"].as_str().unwrap()).unwrap();
+    let original = pair.b.node.cfg().shared_dir.join("shared.bin");
+    tokio::fs::write(&original, b"shared").await.unwrap();
+    let peer_handle = pair
+        .a
+        .node
+        .peer_call(
+            "file.open",
+            json!({"filename":"shared.bin"}),
+            Bytes::new(),
+            5000,
+        )
+        .await
+        .unwrap();
+    let local_handle = pair
+        .b
+        .node
+        .open_shared(json!({"filename":"shared.bin"}))
+        .await
+        .unwrap();
+    pair.disconnect().await;
+    tokio::time::timeout(Duration::from_secs(1), async {
+        while pair.b.node.transfers.get(remote_id).unwrap().status != "cancelled" {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("peer upload must be cancelled at disconnect");
+    assert_eq!(
+        pair.b.node.transfers.get(local_id).unwrap().status,
+        "running"
+    );
+    assert!(pair
+        .b
+        .node
+        .transfers
+        .artifact(uuid::Uuid::parse_str(peer_handle.value["id"].as_str().unwrap()).unwrap())
+        .is_err());
+    assert!(pair
+        .b
+        .node
+        .transfers
+        .artifact(uuid::Uuid::parse_str(local_handle.value["id"].as_str().unwrap()).unwrap())
+        .is_ok());
+    assert!(original.exists());
+    tokio::time::timeout(Duration::from_secs(1), async {
+        while pair
+            .b
+            .node
+            .cfg()
+            .download_dir
+            .join(format!("{remote_id}.part"))
+            .exists()
+        {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("peer partial file cleanup");
+    tokio::time::timeout(Duration::from_secs(1), async {
+        loop {
+            if pair
+                .b
+                .node
+                .create_upload(json!({"filename":"available.bin","total_bytes":0}))
+                .await
+                .is_ok()
+            {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("upload capacity released after asynchronous disconnect cleanup");
+}

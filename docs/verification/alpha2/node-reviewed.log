@@ -1,0 +1,47 @@
+
+> serialbridge-alpha@0.1.0-alpha.2 test
+> npm run build && node --test --test-isolation=none tests/*.test.mjs
+
+
+> serialbridge-alpha@0.1.0-alpha.2 build
+> node scripts/build.mjs
+
+Built console and browser extension. This does not compile Rust/Tauri.
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+✔ allows only the exact origin, not a suffix match (2.133354ms)
+✔ method and sensitive headers are denied (0.667044ms)
+✔ file names cannot escape a directory or use Windows reserved names (0.435485ms)
+✔ limited streaming reads reject a response without content-length above the cap (54.582772ms)
+✔ empty and binary bodies remain byte-exact (2.336867ms)
+✔ permission check returning after disconnect never calls fetch (0.58303ms)
+✔ browser fetch uses credentials and rejects redirects (1.498387ms)
+✔ missing browser permission prevents fetch (0.40072ms)
+✔ binary WebSocket envelope roundtrips and enforces bounds (1.744597ms)
+✔ service-worker pairing, bounded fetch, binary download and disconnect using test doubles (36.48424ms)
+✔ a disconnected peer never leaves remote browser online (4.321826ms)
+✔ missing state is unknown/offline, never optimistic online (0.223778ms)
+✔ log filters combine query with level and component (0.183312ms)
+✔ unknown totals do not pretend to be 100 percent (0.259677ms)
+✔ untrusted markup is escaped (0.330383ms)
+✔ only an exact matching acknowledgement advances the window (0.331725ms)
+✔ out-of-order offset is rejected (0.292563ms)
+✔ disconnect rejects waiting chunks (0.179628ms)
+✔ cancellation releases the pending window (0.194658ms)
+✔ unacknowledged chunk has a finite deadline (54.942834ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 190.911318
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

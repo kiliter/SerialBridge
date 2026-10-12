@@ -40,6 +40,7 @@ pub struct JobView {
 struct Job {
     view: JobView,
     cancel: CancellationToken,
+    peer_session: Option<Uuid>,
 }
 #[derive(Debug, Clone)]
 pub struct Artifact {
@@ -48,6 +49,7 @@ pub struct Artifact {
     pub size: u64,
     pub sha256: String,
     pub owned: bool,
+    pub peer_session: Option<Uuid>,
 }
 struct Upload {
     file: Option<File>,
@@ -99,6 +101,15 @@ impl Transfers {
         direction: &str,
         target: &str,
     ) -> Result<(Uuid, CancellationToken)> {
+        self.new_job_owned(name, direction, target, None)
+    }
+    fn new_job_owned(
+        &self,
+        name: String,
+        direction: &str,
+        target: &str,
+        peer_session: Option<Uuid>,
+    ) -> Result<(Uuid, CancellationToken)> {
         let mut jobs = self.jobs.lock().unwrap();
         if jobs.len() >= 200 {
             return Err(BridgeError::new(
@@ -111,6 +122,7 @@ impl Transfers {
         jobs.insert(
             id,
             Job {
+                peer_session,
                 view: JobView {
                     id,
                     filename: name,
@@ -194,6 +206,30 @@ impl Transfers {
         j.cancel.cancel();
         Ok(())
     }
+    pub(crate) fn cancel_peer(&self, epoch: Uuid) -> Vec<Uuid> {
+        let jobs = self.jobs.lock().unwrap();
+        let ids = jobs
+            .iter()
+            .filter_map(|(id, job)| {
+                if job.peer_session == Some(epoch)
+                    && !["completed", "failed", "cancelled"].contains(&job.view.status.as_str())
+                {
+                    job.cancel.cancel();
+                    Some(*id)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        drop(jobs);
+        // Shared-file handles are session resources; completed owned caches
+        // deliberately remain available for explicit removal.
+        self.files
+            .lock()
+            .unwrap()
+            .retain(|_, file| file.owned || file.peer_session != Some(epoch));
+        ids
+    }
 }
 fn id_param(p: &Value) -> Result<Uuid> {
     Uuid::parse_str(p["id"].as_str().unwrap_or(""))
@@ -238,6 +274,13 @@ impl Node {
         })
     }
     pub fn start_source_download(self: &Arc<Self>, p: Value) -> Result<Reply> {
+        self.start_source_download_owned(p, None)
+    }
+    pub(crate) fn start_source_download_owned(
+        self: &Arc<Self>,
+        p: Value,
+        peer_session: Option<Uuid>,
+    ) -> Result<Reply> {
         let filename = safe_filename(p["filename"].as_str().unwrap_or("download.bin"))?;
         let executor = p["executor"].as_str().unwrap_or("http").to_string();
         if !["http", "browser"].contains(&executor.as_str()) {
@@ -251,9 +294,9 @@ impl Node {
             .clone()
             .try_acquire_owned()
             .map_err(|_| BridgeError::new("BUSY", "At most two transfer jobs per node"))?;
-        let (id, cancel) = self
-            .transfers
-            .new_job(filename.clone(), "source", "local")?;
+        let (id, cancel) =
+            self.transfers
+                .new_job_owned(filename.clone(), "source", "local", peer_session)?;
         let node = self.clone();
         tokio::spawn(async move {
             let _permit = permit;
@@ -393,6 +436,7 @@ impl Node {
                 size: received,
                 sha256: sha.clone(),
                 owned: true,
+                peer_session: None,
             },
         )?;
         self.transfers.update(id, |j| {
@@ -416,6 +460,7 @@ impl Node {
     }
     pub async fn cancel_transfer(&self, id: Uuid) -> Result<()> {
         self.transfers.cancel(id)?;
+        self.transfers.failure(id, &cancelled());
         let upload = { self.transfers.uploads.lock().unwrap().remove(&id) };
         if let Some(upload) = upload {
             let mut u = upload.lock().await;
@@ -542,6 +587,7 @@ impl Node {
                 size: total,
                 sha256: actual.clone(),
                 owned: true,
+                peer_session: None,
             },
         )?;
         self.transfers.update(id, |j| {
@@ -553,6 +599,13 @@ impl Node {
         Ok(())
     }
     pub async fn open_shared(&self, p: Value) -> Result<Reply> {
+        self.open_shared_owned(p, None).await
+    }
+    pub(crate) async fn open_shared_owned(
+        &self,
+        p: Value,
+        peer_session: Option<Uuid>,
+    ) -> Result<Reply> {
         let filename = safe_filename(p["filename"].as_str().unwrap_or(""))?;
         let root = fs::canonicalize(self.cfg().shared_dir).await?;
         let path = fs::canonicalize(root.join(&filename)).await?;
@@ -578,6 +631,7 @@ impl Node {
                 size: m.len(),
                 sha256: hash.clone(),
                 owned: false,
+                peer_session,
             },
         )?;
         Ok(Reply::json(
@@ -616,12 +670,17 @@ impl Node {
         let node = self.clone();
         tokio::spawn(async move {
             let _permit = permit;
+            let mut remote = None;
             let result = tokio::select! {_=cancel.cancelled()=>Err(cancelled()),_=node.shutdown.cancelled()=>Err(cancelled()),r=async{
                 let opened=node.peer_call("file.open",json!({"filename":filename}),Bytes::new(),60000).await?;
-                let remote=id_param(&opened.value)?;let total=u64_param(&opened.value,"total_bytes")?;let hash=opened.value["sha256"].as_str().ok_or_else(||BridgeError::invalid("Missing SHA-256"))?;
-                let result=node.receive_file(id,remote,filename,total,hash).await;
-                let _=node.peer_call("file.remove",json!({"id":remote}),Bytes::new(),3000).await;result
+                let rid=id_param(&opened.value)?;remote=Some(rid);let total=u64_param(&opened.value,"total_bytes")?;let hash=opened.value["sha256"].as_str().ok_or_else(||BridgeError::invalid("Missing SHA-256"))?;
+                node.receive_file(id,rid,filename,total,hash).await
             }=>r};
+            if let Some(rid) = remote {
+                let _ = node
+                    .peer_call("file.remove", json!({"id":rid}), Bytes::new(), 3000)
+                    .await;
+            }
             if let Err(e) = result {
                 node.transfers.failure(id, &e);
                 let _ = fs::remove_file(node.cfg().download_dir.join(format!("{id}.part"))).await;
@@ -630,6 +689,13 @@ impl Node {
         Ok(serde_json::to_value(self.transfers.get(id)?)?)
     }
     pub async fn create_upload(&self, p: Value) -> Result<Reply> {
+        self.create_upload_owned(p, None).await
+    }
+    pub(crate) async fn create_upload_owned(
+        &self,
+        p: Value,
+        peer_session: Option<Uuid>,
+    ) -> Result<Reply> {
         let filename = safe_filename(p["filename"].as_str().unwrap_or(""))?;
         let total = u64_param(&p, "total_bytes")?;
         let slot = self
@@ -640,10 +706,11 @@ impl Node {
             .map_err(|_| BridgeError::new("BUSY", "At most two uploads"))?;
         let budget = self.budget(total).await?;
         let local = p["local_staging"].as_bool().unwrap_or(false);
-        let (id, cancel) = self.transfers.new_job(
+        let (id, cancel) = self.transfers.new_job_owned(
             filename.clone(),
             if local { "staging" } else { "receive" },
             if local { "local" } else { "peer" },
+            peer_session,
         )?;
         self.transfers.update(id, |j| {
             j.status = "running".into();
@@ -729,9 +796,13 @@ impl Node {
             .uploads
             .lock()
             .unwrap()
-            .remove(&id)
+            .get(&id)
+            .cloned()
             .ok_or_else(|| BridgeError::new("NOT_FOUND", "Upload not found"))?;
         let mut u = upload.lock().await;
+        if u.file.is_none() {
+            return Err(BridgeError::invalid("Upload already closed"));
+        }
         let result = async {
             let actual = format!("{:x}", u.hash.clone().finalize());
             if u.cancel.is_cancelled() {
@@ -764,6 +835,7 @@ impl Node {
                     size: u.total,
                     sha256: actual.clone(),
                     owned: true,
+                    peer_session: None,
                 },
             )?;
             self.transfers.update(id, |j| {
@@ -789,6 +861,7 @@ impl Node {
             let _ = fs::remove_file(&u.path).await;
             self.transfers.failure(id, error);
         }
+        self.transfers.uploads.lock().unwrap().remove(&id);
         result
     }
     pub fn start_push(self: &Arc<Self>, artifact: Uuid) -> Result<Value> {
@@ -885,6 +958,101 @@ async fn hash_file(path: &PathBuf) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn test_node() -> (tempfile::TempDir, Arc<Node>) {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = crate::config::Config {
+            download_dir: dir.path().join("downloads"),
+            shared_dir: dir.path().join("shared"),
+            ..crate::config::Config::default()
+        };
+        std::fs::create_dir_all(&cfg.download_dir).unwrap();
+        std::fs::create_dir_all(&cfg.shared_dir).unwrap();
+        let node = Node::new(cfg, dir.path().join("config.toml")).unwrap();
+        (dir, node)
+    }
+    #[tokio::test]
+    async fn dropped_finalization_remains_cancellable_and_reapable() {
+        use std::future::Future;
+        let (_dir, node) = test_node();
+        let start = node
+            .create_upload(json!({"filename":"empty.bin","total_bytes":0}))
+            .await
+            .unwrap();
+        let id = id_param(&start.value).unwrap();
+        let upload = node
+            .transfers
+            .uploads
+            .lock()
+            .unwrap()
+            .get(&id)
+            .cloned()
+            .unwrap();
+        let locked = upload.lock().await;
+        let mut finish = Box::pin(node.finish_upload(json!({"id":id})));
+        std::future::poll_fn(|cx| {
+            assert!(finish.as_mut().poll(cx).is_pending());
+            std::task::Poll::Ready(())
+        })
+        .await;
+        drop(finish);
+        drop(locked);
+        drop(upload);
+        node.cancel_transfer(id).await.unwrap();
+        assert_eq!(node.transfers.get(id).unwrap().status, "cancelled");
+        assert!(!node.cfg().download_dir.join(format!("{id}.part")).exists());
+        for filename in ["one", "two"] {
+            node.create_upload(json!({"filename":filename,"total_bytes":0}))
+                .await
+                .unwrap();
+        }
+    }
+    #[tokio::test]
+    async fn cancelled_pull_releases_remote_shared_handle_and_preserves_original() {
+        let (_ad, a) = test_node();
+        let (_bd, b) = test_node();
+        let original = b.cfg().shared_dir.join("large.bin");
+        fs::write(&original, vec![42_u8; 2 * 1024 * 1024])
+            .await
+            .unwrap();
+        let (left, right) = tokio::io::duplex(1024);
+        let aa = a.clone();
+        let bb = b.clone();
+        let ha = tokio::spawn(async move { crate::transport::session(aa, left).await });
+        let hb = tokio::spawn(async move { crate::transport::session(bb, right).await });
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while !a.peer.lock().unwrap().as_ref().is_some_and(|p| p.ready) {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        let started = a.start_pull(json!({"filename":"large.bin"})).unwrap();
+        let id = id_param(&started).unwrap();
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while a.transfers.get(id).unwrap().stage != "serial_transfer" {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        a.cancel_transfer(id).await.unwrap();
+        let released = tokio::time::timeout(Duration::from_secs(1), async {
+            while !b.transfers.files.lock().unwrap().is_empty() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await;
+        ha.abort();
+        hb.abort();
+        let _ = ha.await;
+        let _ = hb.await;
+        assert!(
+            released.is_ok(),
+            "cancelled pull leaked the remote file handle"
+        );
+        assert!(original.exists());
+        assert_eq!(a.transfers.get(id).unwrap().status, "cancelled");
+    }
     #[tokio::test]
     async fn upload_enforces_offsets_and_hash() {
         let dir = tempfile::tempdir().unwrap();

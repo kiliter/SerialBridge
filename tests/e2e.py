@@ -306,17 +306,21 @@ def main():
     nodes = []
     try:
         with tempfile.TemporaryDirectory(prefix="serialbridge-e2e-") as root:
-            link_port = free_port()
-            nodes.append(NodeProcess(Path(root), "Node A", origin, link_port, True))
-            nodes.append(NodeProcess(Path(root), "Node B", origin, link_port, False))
-            a, b = nodes
-            core_flows(a, b, origin)
-            if options.browser or options.extension:
-                browser_flows(a, b, origin, options.extension)
+            try:
+                link_port = free_port()
+                nodes.append(NodeProcess(Path(root), "Node A", origin, link_port, True))
+                nodes.append(NodeProcess(Path(root), "Node B", origin, link_port, False))
+                a, b = nodes
+                core_flows(a, b, origin)
+                if options.browser or options.extension:
+                    browser_flows(a, b, origin, options.extension)
+            finally:
+                # Windows cannot delete a directory containing open process logs.
+                # Stop the processes and close handles before TempDir cleanup.
+                for node in nodes:
+                    node.stop()
+                    node.log.close()
     finally:
-        for node in nodes:
-            node.stop()
-            node.log.close()
         fixture.shutdown()
         fixture.server_close()
         output = Path(options.output)

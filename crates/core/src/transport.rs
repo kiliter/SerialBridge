@@ -171,7 +171,7 @@ where
                         let n=node.clone();let out=tx.clone();let done=complete_tx.clone();
                         tokio::spawn(async move{
                             let _permit=permit;
-                            let result=tokio::select!{_=cancel.cancelled()=>Err(BridgeError::new("CANCELLED","Request cancelled; side effects may have occurred")),r=n.execute_local(method,packet.meta["params"].clone(),packet.data)=>r};
+                            let result=tokio::select!{_=cancel.cancelled()=>Err(BridgeError::new("CANCELLED","Request cancelled; side effects may have occurred")),r=n.execute_peer(epoch,method,packet.meta["params"].clone(),packet.data)=>r};
                             let reply=match result{Ok(r)=>Packet::new(protocol::RESPONSE,packet.id,json!({"result":r.value}),r.data),Err(e)=>Packet::new(protocol::RESPONSE,packet.id,json!({"error":e}),Bytes::new())};
                             let reply=if serde_json::to_vec(&reply.meta).map(|v|v.len()+reply.data.len()>protocol::MAX_PAYLOAD).unwrap_or(true){Packet::new(protocol::RESPONSE,packet.id,json!({"error":BridgeError::new("RESPONSE_TOO_LARGE","Response exceeds serial frame limit")}),Bytes::new())}else{reply};
                             if !cancel.is_cancelled(){let _=out.send(reply).await;}let _=done.send(packet.id).await;

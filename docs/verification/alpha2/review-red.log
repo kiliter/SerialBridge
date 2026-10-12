@@ -1,0 +1,95 @@
+   Compiling serialbridge-core v0.1.0-alpha.2 (/workspace/SerialBridge-dev/crates/core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.89s
+     Running unittests src/lib.rs (target/debug/deps/serialbridge_core-4b28d7ec0f9b9926)
+
+running 16 tests
+test config::tests::rejects_traversal_and_reserved_names ... ok
+test extension::tests::extension_origin_is_strict ... ok
+test config::tests::default_configuration_is_deny_by_default ... ok
+test config::tests::exact_origins_only ... ok
+test extension::tests::token_check_rejects_empty_and_different_strings ... ok
+test http_executor::tests::policy_rejects_suffix_and_credential_headers ... ok
+test protocol::tests::crc_failure_is_not_silently_accepted ... ok
+test protocol::tests::concatenated_frames_are_decoded_in_order ... ok
+test protocol::tests::noise_can_be_resynchronized ... ok
+test protocol::tests::oversized_header_is_rejected_before_allocation ... ok
+test protocol::tests::fragmented_and_binary_roundtrip ... ok
+test protocol::tests::encoder_accepts_exact_limit_and_rejects_one_more_byte ... ok
+test transfer::tests::empty_file_hash_is_verified ... ok
+test transfer::tests::dropped_finalization_remains_cancellable_and_reapable ... FAILED
+test transfer::tests::upload_enforces_offsets_and_hash ... ok
+test transfer::tests::cancelled_pull_releases_remote_shared_handle_and_preserves_original ... FAILED
+
+failures:
+
+---- transfer::tests::dropped_finalization_remains_cancellable_and_reapable stdout ----
+
+thread 'transfer::tests::dropped_finalization_remains_cancellable_and_reapable' (16609) panicked at crates/core/src/transfer.rs:908:9:
+assertion `left == right` failed
+  left: "running"
+ right: "cancelled"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- transfer::tests::cancelled_pull_releases_remote_shared_handle_and_preserves_original stdout ----
+
+thread 'transfer::tests::cancelled_pull_releases_remote_shared_handle_and_preserves_original' (16608) panicked at crates/core/src/transfer.rs:925:9:
+cancelled pull leaked the remote file handle
+
+
+failures:
+    transfer::tests::cancelled_pull_releases_remote_shared_handle_and_preserves_original
+    transfer::tests::dropped_finalization_remains_cancellable_and_reapable
+
+test result: FAILED. 14 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.08s
+
+error: test failed, to rerun pass `-p serialbridge-core --lib`
+     Running tests/http_flows.rs (target/debug/deps/http_flows-9641cd284508454a)
+
+running 5 tests
+test actual_stream_without_content_length_is_bounded ... ok
+test actual_http_redirect_is_rejected ... ok
+test real_http_binary_response_uses_lossless_base64 ... ok
+test peer_timeout_cleans_pending_requests_and_does_not_replay_http ... ok
+test peer_disconnect_cancels_its_source_download_but_preserves_local_work ... FAILED
+
+failures:
+
+---- peer_disconnect_cancels_its_source_download_but_preserves_local_work stdout ----
+
+thread 'peer_disconnect_cancels_its_source_download_but_preserves_local_work' (16620) panicked at crates/core/tests/http_flows.rs:78:14:
+peer source job cancellation: Elapsed(())
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    peer_disconnect_cancels_its_source_download_but_preserves_local_work
+
+test result: FAILED. 4 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.01s
+
+error: test failed, to rerun pass `-p serialbridge-core --test http_flows`
+     Running tests/transport_flows.rs (target/debug/deps/transport_flows-e425fb0e7b9e2cd6)
+
+running 3 tests
+test disconnected_nodes_fail_pending_requests_and_clear_peer_state ... ok
+test bidirectional_binary_writes_progress_with_small_transport_buffers ... ok
+test peer_disconnect_releases_its_upload_but_preserves_local_upload ... FAILED
+
+failures:
+
+---- peer_disconnect_releases_its_upload_but_preserves_local_upload stdout ----
+
+thread 'peer_disconnect_releases_its_upload_but_preserves_local_upload' (16627) panicked at crates/core/tests/transport_flows.rs:84:14:
+peer upload must be cancelled at disconnect: Elapsed(())
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    peer_disconnect_releases_its_upload_but_preserves_local_upload
+
+test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.01s
+
+error: test failed, to rerun pass `-p serialbridge-core --test transport_flows`
+error: 3 targets failed:
+    `-p serialbridge-core --lib`
+    `-p serialbridge-core --test http_flows`
+    `-p serialbridge-core --test transport_flows`

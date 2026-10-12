@@ -64,6 +64,77 @@ impl Drop for Fixture {
         self.task.abort();
     }
 }
+
+#[tokio::test]
+async fn peer_disconnect_cancels_its_source_download_but_preserves_local_work() {
+    let web = Fixture::new().await;
+    let mut pair = Pair::new(1024).await;
+    web.allow(&pair.b.node);
+    let remote = pair
+        .a
+        .node
+        .peer_call(
+            "download.start",
+            json!({"executor":"http","url":format!("{}/slow",web.origin),"filename":"remote.bin"}),
+            Bytes::new(),
+            5000,
+        )
+        .await
+        .unwrap();
+    let remote_id = uuid::Uuid::parse_str(remote.value["id"].as_str().unwrap()).unwrap();
+    let local = pair
+        .b
+        .node
+        .start_source_download(
+            json!({"executor":"http","url":format!("{}/slow",web.origin),"filename":"local.bin"}),
+        )
+        .unwrap();
+    let local_id = uuid::Uuid::parse_str(local.value["id"].as_str().unwrap()).unwrap();
+    pair.disconnect().await;
+    tokio::time::timeout(Duration::from_secs(1), async {
+        while pair.b.node.transfers.get(remote_id).unwrap().status != "cancelled" {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("peer source job cancellation");
+    assert!(!["cancelled", "failed"]
+        .contains(&pair.b.node.transfers.get(local_id).unwrap().status.as_str()));
+    tokio::time::timeout(Duration::from_secs(1),async{
+        loop{if pair.b.node.start_source_download(json!({"executor":"http","url":format!("{}/binary",web.origin),"filename":"available.bin"})).is_ok(){break}tokio::task::yield_now().await;}
+    }).await.expect("source job capacity released");
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while pair.b.node.transfers.get(local_id).unwrap().status != "completed" {
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .expect("independent local HTTP download completes after peer disconnect");
+}
+
+#[tokio::test]
+async fn completed_peer_source_cache_is_preserved_after_disconnect() {
+    let web = Fixture::new().await;
+    let mut pair = Pair::new(1024).await;
+    web.allow(&pair.b.node);
+    let source=pair.a.node.peer_call("download.start",json!({"executor":"http","url":format!("{}/binary",web.origin),"filename":"cached.bin"}),Bytes::new(),5000).await.unwrap();
+    let id = uuid::Uuid::parse_str(source.value["id"].as_str().unwrap()).unwrap();
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while pair.b.node.transfers.get(id).unwrap().status != "completed" {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    pair.disconnect().await;
+    assert_eq!(pair.b.node.transfers.get(id).unwrap().status, "completed");
+    assert_eq!(
+        tokio::fs::read(pair.b.node.transfers.artifact(id).unwrap().path)
+            .await
+            .unwrap(),
+        [0, 255, 128, 1]
+    );
+}
 #[tokio::test]
 async fn real_http_binary_response_uses_lossless_base64() {
     let web = Fixture::new().await;
