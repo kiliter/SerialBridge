@@ -1,0 +1,5 @@
+{
+  "scope": "UI only; demo data and intercepted HTTP fixtures, not Rust/hardware",
+  "passed": [],
+  "count": 0
+}

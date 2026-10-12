@@ -1,0 +1,7 @@
+OS: Linux-6.18.44-x86_64-with-glibc2.41
+Python: 3.13.5
+node: exit=0; v22.16.0
+typescript: exit=0; Version 5.8.3
+chromium: exit=0; Chromium 144.0.7559.96 built on Debian GNU/Linux 13 (trixie)
+cargo: executable not found; not runnable in this environment
+rustc: executable not found; not runnable in this environment

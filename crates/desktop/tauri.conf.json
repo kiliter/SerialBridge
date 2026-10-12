@@ -1,0 +1,13 @@
+{
+  "$schema":"https://schema.tauri.app/config/2",
+  "productName":"SerialBridge",
+  "version":"0.1.0-alpha.1",
+  "identifier":"dev.serialbridge.desktop",
+  "build":{"frontendDist":"../../ui/dist"},
+  "app":{
+    "withGlobalTauri":true,
+    "windows":[{"label":"main","title":"SerialBridge","width":1280,"height":840,"minWidth":900,"minHeight":640,"center":true}],
+    "security":{"csp":"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src ipc: http://ipc.localhost; object-src 'none'; base-uri 'self'; frame-src 'none'"}
+  },
+  "bundle":{"active":true,"targets":"all","icon":["icons/icon.png","icons/icon.ico","icons/icon.icns"],"shortDescription":"Peer-to-peer serial RPC and browser bridge"}
+}

@@ -1,0 +1,13 @@
+{
+  "scope": "offline DOM with explicit native-command test doubles, no network/Rust/native platform/hardware integration",
+  "passed": [
+    "four connection cards render escaped fixture data",
+    "log filtering, detail dialog and pause work",
+    "export button calls the native-command test double",
+    "download creation and cancellation update cards",
+    "settings and pairing UI call their API contracts",
+    "remote browser becomes unknown when peer is disconnected",
+    "core failure clears online badges; no optimistic demo fallback"
+  ],
+  "count": 7
+}

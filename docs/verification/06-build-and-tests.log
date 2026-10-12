@@ -1,0 +1,133 @@
+
+> serialbridge-alpha@0.1.0-alpha.1 test
+> npm run build && node --test tests/*.test.mjs
+
+
+> serialbridge-alpha@0.1.0-alpha.1 build
+> node scripts/build.mjs
+
+Built console and browser extension. This does not compile Rust/Tauri.
+TAP version 13
+# Subtest: allows only the exact origin, not a suffix match
+ok 1 - allows only the exact origin, not a suffix match
+  ---
+  duration_ms: 3.117373
+  type: 'test'
+  ...
+# Subtest: method and sensitive headers are denied
+ok 2 - method and sensitive headers are denied
+  ---
+  duration_ms: 0.81256
+  type: 'test'
+  ...
+# Subtest: file names cannot escape a directory or use Windows reserved names
+ok 3 - file names cannot escape a directory or use Windows reserved names
+  ---
+  duration_ms: 0.65011
+  type: 'test'
+  ...
+# Subtest: limited streaming reads reject a response without content-length above the cap
+ok 4 - limited streaming reads reject a response without content-length above the cap
+  ---
+  duration_ms: 26.859701
+  type: 'test'
+  ...
+# Subtest: empty and binary bodies remain byte-exact
+ok 5 - empty and binary bodies remain byte-exact
+  ---
+  duration_ms: 1.521926
+  type: 'test'
+  ...
+# Subtest: permission check returning after disconnect never calls fetch
+ok 6 - permission check returning after disconnect never calls fetch
+  ---
+  duration_ms: 0.270008
+  type: 'test'
+  ...
+# Subtest: browser fetch uses credentials and rejects redirects
+ok 7 - browser fetch uses credentials and rejects redirects
+  ---
+  duration_ms: 1.160192
+  type: 'test'
+  ...
+# Subtest: missing browser permission prevents fetch
+ok 8 - missing browser permission prevents fetch
+  ---
+  duration_ms: 0.308408
+  type: 'test'
+  ...
+# Subtest: binary WebSocket envelope roundtrips and enforces bounds
+ok 9 - binary WebSocket envelope roundtrips and enforces bounds
+  ---
+  duration_ms: 0.411288
+  type: 'test'
+  ...
+# Subtest: a disconnected peer never leaves remote browser online
+ok 10 - a disconnected peer never leaves remote browser online
+  ---
+  duration_ms: 0.673751
+  type: 'test'
+  ...
+# Subtest: missing state is unknown/offline, never optimistic online
+ok 11 - missing state is unknown/offline, never optimistic online
+  ---
+  duration_ms: 0.098167
+  type: 'test'
+  ...
+# Subtest: log filters combine query with level and component
+ok 12 - log filters combine query with level and component
+  ---
+  duration_ms: 0.187214
+  type: 'test'
+  ...
+# Subtest: unknown totals do not pretend to be 100 percent
+ok 13 - unknown totals do not pretend to be 100 percent
+  ---
+  duration_ms: 0.184651
+  type: 'test'
+  ...
+# Subtest: untrusted markup is escaped
+ok 14 - untrusted markup is escaped
+  ---
+  duration_ms: 0.323318
+  type: 'test'
+  ...
+# Subtest: only an exact matching acknowledgement advances the window
+ok 15 - only an exact matching acknowledgement advances the window
+  ---
+  duration_ms: 1.463211
+  type: 'test'
+  ...
+# Subtest: out-of-order offset is rejected
+ok 16 - out-of-order offset is rejected
+  ---
+  duration_ms: 0.890948
+  type: 'test'
+  ...
+# Subtest: disconnect rejects waiting chunks
+ok 17 - disconnect rejects waiting chunks
+  ---
+  duration_ms: 1.322132
+  type: 'test'
+  ...
+# Subtest: cancellation releases the pending window
+ok 18 - cancellation releases the pending window
+  ---
+  duration_ms: 0.653271
+  type: 'test'
+  ...
+# Subtest: unacknowledged chunk has a finite deadline
+ok 19 - unacknowledged chunk has a finite deadline
+  ---
+  duration_ms: 7.081068
+  type: 'test'
+  ...
+1..19
+# tests 19
+# suites 0
+# pass 19
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 108.734468

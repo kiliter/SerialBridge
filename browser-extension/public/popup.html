@@ -1,0 +1,6 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>SerialBridge</title><link rel="stylesheet" href="popup.css"></head><body>
+<header><div class="logo">⇄</div><div><strong>SerialBridge</strong><small>浏览器执行器 · Alpha</small></div><span id="state" class="pill">未就绪</span></header>
+<section><b id="node">本机 SerialBridge</b><p id="detail">读取连接状态…</p><small>正在执行 <span id="tasks">0</span> 个任务</small></section>
+<form id="pair-form"><h2>连接本机服务</h2><label>HTTP 端口<input id="port" type="number" value="9527" min="1" max="65535" required></label><label>配对码<input id="code" placeholder="从桌面设置获取 · 12 位" autocomplete="off" maxlength="12"></label><p>首次配对需填写配对码；已配对时留空即可重连。</p><div class="actions"><button class="primary" type="submit">配对 / 连接</button><button id="disconnect" type="button">断开</button></div></form>
+<section><h2>网站授权</h2><label>目标网站<input id="origin" type="url" placeholder="https://example.com"></label><button id="grant">授权这个网站</button><p id="permission">扩展权限与执行节点的来源白名单必须同时允许。</p></section>
+<p id="error" role="alert"></p><footer>仅在授权范围内执行请求。不提供任意脚本、浏览器 Cookie 导出。</footer><script type="module" src="popup.js"></script></body></html>

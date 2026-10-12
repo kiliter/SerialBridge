@@ -1,0 +1,8 @@
+PASS four connection cards render escaped fixture data
+PASS log filtering, detail dialog and pause work
+PASS export button calls the native-command test double
+PASS download creation and cancellation update cards
+PASS settings and pairing UI call their API contracts
+PASS remote browser becomes unknown when peer is disconnected
+PASS core failure clears online badges; no optimistic demo fallback
+7 offline DOM checks passed

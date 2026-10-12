@@ -1,0 +1,1 @@
+{"identifier":"main-window","description":"Local SerialBridge console only; no remote URL capability","windows":["main"],"permissions":["core:default"]}

@@ -1,0 +1,15 @@
+# Copy outside configs/ before use. Both nodes use the same schema.
+# An empty API token is replaced with a randomly generated token on first load.
+node_name = "Node A"
+http_port = 9527
+serial_port = "/dev/cu.usbserial-REPLACE-ME"
+baud_rate = 115200
+api_token = ""
+allowed_origins = []
+allowed_methods = ["GET", "HEAD"]
+download_dir = "downloads"
+shared_dir = "shared"
+max_file_bytes = 104857600
+max_spool_bytes = 1073741824
+chunk_bytes = 8192
+auto_reconnect = true
