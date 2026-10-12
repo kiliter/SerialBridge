@@ -1,0 +1,22 @@
+   Compiling serialbridge-core v0.1.0-alpha.2 (/workspace/SerialBridge-dev/crates/core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.77s
+     Running unittests src/lib.rs (target/debug/deps/serialbridge_core-4b28d7ec0f9b9926)
+
+running 1 test
+test transfer::tests::stale_peer_session_cannot_create_transfer_resources ... FAILED
+
+failures:
+
+---- transfer::tests::stale_peer_session_cannot_create_transfer_resources stdout ----
+
+thread 'transfer::tests::stale_peer_session_cannot_create_transfer_resources' (21274) panicked at crates/core/src/transfer.rs:966:109:
+called `Result::unwrap_err()` on an `Ok` value: Reply { value: Object {"id": String("8470ca6c-158d-4846-adc4-8b5ed83d5265"), "offset": Number(0)}, data: b"" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    transfer::tests::stale_peer_session_cannot_create_transfer_resources
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p serialbridge-core --lib`

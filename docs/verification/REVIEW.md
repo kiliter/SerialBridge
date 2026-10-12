@@ -15,3 +15,7 @@ The final fix pass was performed by the implementer and verified using reproduci
 ## Scope decisions
 
 No framework, database, resume protocol, encryption redesign or speculative refactor was added. Tests distinguish actual Core/local HTTP/TCP/WebSocket flows from Chrome API doubles, and do not claim physical serial acceptance or publisher signing/notarization. The four platform artifact groups retain two useful Linux package formats in one group.
+
+## CI follow-up
+
+The first CI run exposed the Node 22 experimental-option spelling, corrected and verified with 20 actual tests on both Node 22 and 24. The next run passed Windows/macOS builds and native startup smoke, but Linux reproduced an I/O race: quota scanning read metadata for a part file concurrently deleted by disconnect cleanup. The local diagnostic confirmed ENOENT; only vanished entries are skipped, retaining all other I/O failures and quota limits. The original regression then passed ten consecutive runs. Post-registration session checks and a stale-session regression cover late resource creation across disconnect. The full local suite now passes **47 Core tests**, Clippy and 21 live process/UI checks. This follow-up was self-checked and tested, not labelled as another independent review.

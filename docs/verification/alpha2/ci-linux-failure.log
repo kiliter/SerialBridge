@@ -1,0 +1,30 @@
+CI run 38281580583, Linux job 114919856906
+2026-10-12T17:04:35.4272620Z test peer_disconnect_cancels_its_source_download_but_preserves_local_work ... FAILED
+2026-10-12T17:04:35.4285676Z test completed_peer_source_cache_is_preserved_after_disconnect ... ok
+2026-10-12T17:04:36.4307863Z test peer_timeout_cleans_pending_requests_and_does_not_replay_http ... ok
+2026-10-12T17:04:36.4308459Z 
+2026-10-12T17:04:36.4308625Z failures:
+2026-10-12T17:04:36.4308803Z 
+2026-10-12T17:04:36.4309389Z ---- peer_disconnect_cancels_its_source_download_but_preserves_local_work stdout ----
+2026-10-12T17:04:36.4310005Z 
+2026-10-12T17:04:36.4311193Z thread 'peer_disconnect_cancels_its_source_download_but_preserves_local_work' (7260) panicked at crates/core/tests/http_flows.rs:101:5:
+2026-10-12T17:04:36.4311918Z assertion failed: !["cancelled",
+2026-10-12T17:04:36.4312443Z                 "failed"].contains(&pair.b.node.transfers.get(local_id).unwrap().status.as_str())
+2026-10-12T17:04:36.4313161Z note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+2026-10-12T17:04:36.4313485Z 
+2026-10-12T17:04:36.4313492Z 
+2026-10-12T17:04:36.4313877Z failures:
+2026-10-12T17:04:36.4314245Z     peer_disconnect_cancels_its_source_download_but_preserves_local_work
+2026-10-12T17:04:36.4314568Z 
+2026-10-12T17:04:36.4314958Z test result: FAILED. 5 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.01s
+2026-10-12T17:04:36.4315335Z 
+2026-10-12T17:04:36.4316777Z [1m[91merror[0m: test failed, to rerun pass `-p serialbridge-core --test http_flows`
+2026-10-12T17:04:36.4406404Z ##[error]Process completed with exit code 101.
+2026-10-12T17:04:36.4567254Z Post job cleanup.
+2026-10-12T17:04:36.5494644Z [command]/usr/bin/git version
+2026-10-12T17:04:36.5546710Z git version 2.55.0
+2026-10-12T17:04:36.5594209Z Temporarily overriding HOME='/home/runner/work/_temp/8bf3b765-a8cc-4716-9d7e-526eec4e401a' before making global git config changes
+2026-10-12T17:04:36.5595905Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-12T17:04:36.5601402Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/SerialBridge/SerialBridge
+2026-10-12T17:04:36.5649469Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+

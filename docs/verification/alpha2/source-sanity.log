@@ -1,1 +1,1 @@
-PASS: source JSON/TOML parse, expected module/build assets exist, no todo!/unimplemented! macros. 46 Rust test functions detected; execution results come from cargo test logs, not this static check.
+PASS: source JSON/TOML parse, expected module/build assets exist, no todo!/unimplemented! macros. 47 Rust test functions detected; execution results come from cargo test logs, not this static check.

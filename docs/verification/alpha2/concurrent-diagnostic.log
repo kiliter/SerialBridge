@@ -1,0 +1,19 @@
+   Compiling serialbridge-core v0.1.0-alpha.2 (/workspace/SerialBridge-dev/crates/core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.09s
+     Running tests/http_flows.rs (target/debug/deps/http_flows-9641cd284508454a)
+
+running 1 test
+
+thread 'peer_disconnect_cancels_its_source_download_but_preserves_local_work' (20957) panicked at crates/core/tests/http_flows.rs:102:5:
+local download unexpectedly stopped: JobView { id: 5741a5bc-b32c-44fe-91d5-a7be3dced912, filename: "local.bin", direction: "source", target: "local", status: "failed", stage: "queued", received_bytes: 0, total_bytes: None, sha256: None, error: Some("IO_ERROR: No such file or directory (os error 2)"), created_at: 1791825093937 }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test peer_disconnect_cancels_its_source_download_but_preserves_local_work ... FAILED
+
+failures:
+
+failures:
+    peer_disconnect_cancels_its_source_download_but_preserves_local_work
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p serialbridge-core --test http_flows`

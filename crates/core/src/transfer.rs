@@ -243,6 +243,17 @@ fn cancelled() -> BridgeError {
     BridgeError::new("CANCELLED", "Transfer cancelled")
 }
 impl Node {
+    fn peer_session_active(&self, session: Option<Uuid>) -> bool {
+        match session {
+            None => true,
+            Some(epoch) => self
+                .peer
+                .lock()
+                .unwrap()
+                .as_ref()
+                .is_some_and(|p| p.ready && p.epoch == epoch),
+        }
+    }
     async fn budget(&self, bytes: u64) -> Result<Budget> {
         let cfg = self.cfg();
         if bytes > cfg.max_file_bytes {
@@ -254,7 +265,13 @@ impl Node {
         let mut used = 0u64;
         let mut entries = fs::read_dir(&cfg.download_dir).await?;
         while let Some(entry) = entries.next_entry().await? {
-            let meta = entry.metadata().await?;
+            let meta = match entry.metadata().await {
+                Ok(meta) => meta,
+                // Another task can remove/rename a part between read_dir and
+                // metadata. A vanished entry occupies no space in this scan.
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+                Err(error) => return Err(error.into()),
+            };
             if meta.is_file() {
                 used = used.saturating_add(meta.len())
             }
@@ -297,6 +314,16 @@ impl Node {
         let (id, cancel) =
             self.transfers
                 .new_job_owned(filename.clone(), "source", "local", peer_session)?;
+        // Register first, then check the session: disconnect cleanup either
+        // sees this job, or this check observes that the session already ended.
+        if !self.peer_session_active(peer_session) {
+            cancel.cancel();
+            self.transfers.failure(id, &cancelled());
+            return Err(BridgeError::new(
+                "PEER_DISCONNECTED",
+                "Peer session closed during download creation",
+            ));
+        }
         let node = self.clone();
         tokio::spawn(async move {
             let _permit = permit;
@@ -634,6 +661,13 @@ impl Node {
                 peer_session,
             },
         )?;
+        if !self.peer_session_active(peer_session) {
+            self.transfers.files.lock().unwrap().remove(&id);
+            return Err(BridgeError::new(
+                "PEER_DISCONNECTED",
+                "Peer session closed while opening shared file",
+            ));
+        }
         Ok(Reply::json(
             json!({"id":id,"filename":filename,"total_bytes":m.len(),"sha256":hash}),
         ))
@@ -754,6 +788,13 @@ impl Node {
             .lock()
             .unwrap()
             .insert(id, Arc::new(AsyncMutex::new(upload)));
+        if !self.peer_session_active(peer_session) {
+            self.remove_artifact(json!({"id":id})).await?;
+            return Err(BridgeError::new(
+                "PEER_DISCONNECTED",
+                "Peer session closed during upload creation",
+            ));
+        }
         Ok(Reply::json(json!({"id":id,"offset":0})))
     }
     pub async fn write_block(&self, p: Value, data: Bytes) -> Result<Reply> {
@@ -958,6 +999,53 @@ async fn hash_file(path: &PathBuf) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn stale_peer_session_cannot_create_transfer_resources() {
+        let (_dir, node) = test_node();
+        let old = Uuid::new_v4();
+        node.config.write().unwrap().allowed_origins = vec!["https://example.test".into()];
+        let local = node
+            .create_upload(json!({"filename":"local.bin","total_bytes":0}))
+            .await
+            .unwrap();
+        assert_eq!(
+            node.create_upload_owned(json!({"filename":"late.bin","total_bytes":0}), Some(old))
+                .await
+                .unwrap_err()
+                .code,
+            "PEER_DISCONNECTED"
+        );
+        assert_eq!(
+            node.start_source_download_owned(
+                json!({"url":"https://example.test/file","filename":"late-source.bin"}),
+                Some(old)
+            )
+            .unwrap_err()
+            .code,
+            "PEER_DISCONNECTED"
+        );
+        let path = node.cfg().shared_dir.join("shared.bin");
+        fs::write(&path, b"shared").await.unwrap();
+        assert_eq!(
+            node.open_shared_owned(json!({"filename":"shared.bin"}), Some(old))
+                .await
+                .unwrap_err()
+                .code,
+            "PEER_DISCONNECTED"
+        );
+        assert!(node.transfers.files.lock().unwrap().is_empty());
+        assert_eq!(
+            node.transfers
+                .get(id_param(&local.value).unwrap())
+                .unwrap()
+                .status,
+            "running"
+        );
+        assert!(path.exists());
+        node.create_upload(json!({"filename":"available.bin","total_bytes":0}))
+            .await
+            .unwrap();
+    }
     fn test_node() -> (tempfile::TempDir, Arc<Node>) {
         let dir = tempfile::tempdir().unwrap();
         let cfg = crate::config::Config {

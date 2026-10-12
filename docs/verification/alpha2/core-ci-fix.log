@@ -1,0 +1,109 @@
+   Compiling serialbridge-core v0.1.0-alpha.2 (/workspace/SerialBridge-dev/crates/core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 16.93s
+     Running unittests src/lib.rs (target/debug/deps/serialbridge_core-4b28d7ec0f9b9926)
+
+running 17 tests
+test config::tests::rejects_traversal_and_reserved_names ... ok
+test extension::tests::extension_origin_is_strict ... ok
+test extension::tests::token_check_rejects_empty_and_different_strings ... ok
+test config::tests::default_configuration_is_deny_by_default ... ok
+test config::tests::exact_origins_only ... ok
+test http_executor::tests::policy_rejects_suffix_and_credential_headers ... ok
+test protocol::tests::crc_failure_is_not_silently_accepted ... ok
+test protocol::tests::fragmented_and_binary_roundtrip ... ok
+test protocol::tests::concatenated_frames_are_decoded_in_order ... ok
+test protocol::tests::noise_can_be_resynchronized ... ok
+test protocol::tests::encoder_accepts_exact_limit_and_rejects_one_more_byte ... ok
+test protocol::tests::oversized_header_is_rejected_before_allocation ... ok
+test transfer::tests::empty_file_hash_is_verified ... ok
+test transfer::tests::dropped_finalization_remains_cancellable_and_reapable ... ok
+test transfer::tests::upload_enforces_offsets_and_hash ... ok
+test transfer::tests::stale_peer_session_cannot_create_transfer_resources ... ok
+test transfer::tests::cancelled_pull_releases_remote_shared_handle_and_preserves_original ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running unittests src/main.rs (target/debug/deps/serialbridge-e8c7c97005029338)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/api_flows.rs (target/debug/deps/api_flows-09388fa43ce0062a)
+
+running 5 tests
+test public_rpc_does_not_expose_internal_file_operations ... ok
+test truncated_http_upload_fails_without_a_completed_artifact ... ok
+test rejected_settings_do_not_change_runtime_or_saved_configuration ... ok
+test web_console_preflight_allows_only_the_documented_origin ... ok
+test saved_http_port_requires_restart_while_runtime_port_remains_truthful ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/browser_socket.rs (target/debug/deps/browser_socket-c9d24211b6c65efe)
+
+running 4 tests
+test actual_websocket_pairing_persists_origin_and_rejects_code_reuse_and_foreign_origin ... ok
+test pairing_expires_and_locks_after_five_bad_attempts ... ok
+test websocket_routes_fetch_and_revoke_fails_pending_tasks_and_credentials ... ok
+test actual_core_accepts_acknowledged_browser_binary_download_and_hashes_it ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/cli.rs (target/debug/deps/cli-03b84922ceaacf9a)
+
+running 1 test
+test init_accepts_a_relative_config_filename ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/http_flows.rs (target/debug/deps/http_flows-9641cd284508454a)
+
+running 6 tests
+test actual_stream_without_content_length_is_bounded ... ok
+test actual_http_redirect_is_rejected ... ok
+test real_http_binary_response_uses_lossless_base64 ... ok
+test completed_peer_source_cache_is_preserved_after_disconnect ... ok
+test peer_timeout_cleans_pending_requests_and_does_not_replay_http ... ok
+test peer_disconnect_cancels_its_source_download_but_preserves_local_work ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.02s
+
+     Running tests/integration.rs (target/debug/deps/integration-f47aa27af10e5090)
+
+running 4 tests
+test unknown_method_is_explicit_not_a_placeholder_success ... ok
+test foreign_web_origin_is_rejected_even_with_token ... ok
+test private_api_requires_token ... ok
+test nodes_can_call_each_other_concurrently_over_the_same_stream ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/transfer_flows.rs (target/debug/deps/transfer_flows-5b18f0a1ce57a692)
+
+running 7 tests
+test failed_upload_creation_records_failure_and_releases_capacity ... ok
+test failed_file_publication_records_failure_and_releases_capacity ... ok
+test cancelling_an_incoming_upload_updates_status_and_releases_capacity ... ok
+test upload_rejects_file_limit_and_directory_quota ... ok
+test shared_file_handle_removal_preserves_original_and_rejects_invalid_ranges ... ok
+test wrong_hash_fails_without_publishing_a_file_and_releases_upload_slots ... ok
+test multichunk_upload_preserves_binary_bytes_and_publishes_only_after_finish ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/transport_flows.rs (target/debug/deps/transport_flows-e425fb0e7b9e2cd6)
+
+running 3 tests
+test disconnected_nodes_fail_pending_requests_and_clear_peer_state ... ok
+test peer_disconnect_releases_its_upload_but_preserves_local_upload ... ok
+test bidirectional_binary_writes_progress_with_small_transport_buffers ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+   Doc-tests serialbridge_core
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

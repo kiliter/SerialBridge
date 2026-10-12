@@ -98,8 +98,11 @@ async fn peer_disconnect_cancels_its_source_download_but_preserves_local_work() 
     })
     .await
     .expect("peer source job cancellation");
-    assert!(!["cancelled", "failed"]
-        .contains(&pair.b.node.transfers.get(local_id).unwrap().status.as_str()));
+    let local_view = pair.b.node.transfers.get(local_id).unwrap();
+    assert!(
+        !["cancelled", "failed"].contains(&local_view.status.as_str()),
+        "local download unexpectedly stopped: {local_view:?}"
+    );
     tokio::time::timeout(Duration::from_secs(1),async{
         loop{if pair.b.node.start_source_download(json!({"executor":"http","url":format!("{}/binary",web.origin),"filename":"available.bin"})).is_ok(){break}tokio::task::yield_now().await;}
     }).await.expect("source job capacity released");
