@@ -39,12 +39,12 @@ jobs:
               target/release/bundle/appimage/*.AppImage
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - uses: dtolnay/rust-toolchain@stable
@@ -100,7 +100,7 @@ jobs:
             python tests/desktop_smoke.py target/release/serialbridge-desktop.exe
           fi
       - name: Upload installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.files }}
@@ -111,7 +111,7 @@ jobs:
         run: python scripts/package-extension.py
       - name: Upload Chrome extension
         if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: SerialBridge-Chrome
           path: artifacts/SerialBridge-Chrome-*.zip
@@ -126,8 +126,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v7
         with:
           pattern: SerialBridge-*
           merge-multiple: true
