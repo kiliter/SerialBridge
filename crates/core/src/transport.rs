@@ -186,7 +186,7 @@ where
                         let ready=node.peer.lock().unwrap().as_ref().is_some_and(|p|p.ready);
                         if !ready{return Err(BridgeError::invalid("RPC received before handshake"))}
                         if active.contains_key(&packet.id){return Err(BridgeError::invalid("Duplicate active request ID"))}
-                        let permit=match slots.clone().try_acquire_owned(){Ok(p)=>p,Err(_)=>{let error=BridgeError::new("BUSY","Peer execution limit reached");let _=tx.try_send(Packet::new(protocol::RESPONSE,packet.id,json!({"error":error}),Bytes::new()));continue}};
+                        let permit=match slots.clone().try_acquire_owned(){Ok(p)=>p,Err(_)=>{let error=BridgeError::new("BUSY","Peer execution limit reached");crate::tunnel::send_control(&ctl,Packet::new(protocol::RESPONSE,packet.id,json!({"error":error}),Bytes::new()));continue}};
                         let method=packet.meta["method"].as_str().ok_or_else(||BridgeError::invalid("Missing RPC method"))?.to_string();
                         let cancel=stop.child_token();active.insert(packet.id,cancel.clone());
                         let n=node.clone();let out=tx.clone();let done=complete_tx.clone();

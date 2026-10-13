@@ -55,7 +55,10 @@ async fn main() -> anyhow::Result<()> {
         }
         Command::Status => {
             let cfg = Config::load(&path)?;
-            let value: serde_json::Value = reqwest::Client::new()
+            let value: serde_json::Value = reqwest::Client::builder()
+                // 系统代理不会自动排除 loopback；Token 不能发给代理。
+                .no_proxy()
+                .build()?
                 .get(format!("http://127.0.0.1:{}/v1/health", cfg.http_port))
                 .bearer_auth(cfg.api_token)
                 .send()

@@ -280,19 +280,28 @@ impl Node {
             tx: link.tx.clone(),
         };
         let packet = Packet::new(protocol::REQUEST, id, meta, data);
-        link.tx
-            .try_send(packet)
-            .map_err(|_| BridgeError::new("BUSY", "Serial write queue unavailable"))?;
-        self.log("info", "rpc", format!("Sent {method}"), id);
-        tokio::time::timeout(Duration::from_millis(timeout_ms.clamp(1000, 120000)), rx)
-            .await
-            .map_err(|_| {
-                BridgeError::new(
-                    "TIMEOUT",
-                    "Peer request timed out; execution outcome may be unknown",
-                )
-            })?
-            .map_err(|_| BridgeError::new("PEER_DISCONNECTED", "Peer disconnected"))?
+        // 写队列与 TCP 转发等批量数据共享；队列暂满是背压而不是错误，
+        // 等待入队与等待应答共用同一超时。
+        let exchange = async {
+            link.tx
+                .send(packet)
+                .await
+                .map_err(|_| BridgeError::new("PEER_DISCONNECTED", "Serial write queue closed"))?;
+            self.log("info", "rpc", format!("Sent {method}"), id);
+            rx.await
+                .map_err(|_| BridgeError::new("PEER_DISCONNECTED", "Peer disconnected"))?
+        };
+        tokio::time::timeout(
+            Duration::from_millis(timeout_ms.clamp(1000, 120000)),
+            exchange,
+        )
+        .await
+        .map_err(|_| {
+            BridgeError::new(
+                "TIMEOUT",
+                "Peer request timed out; execution outcome may be unknown",
+            )
+        })?
     }
     pub fn peer_lost(self: &Arc<Self>, epoch: Uuid) {
         {
@@ -452,5 +461,47 @@ impl Drop for BrowserTask {
     fn drop(&mut self) {
         self.node.browser_pending.lock().unwrap().remove(&self.id);
         let _ = self.tx.try_send(json!({"type":"task.cancel","id":self.id}));
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[tokio::test]
+    async fn full_write_queue_delays_rpc_instead_of_failing() {
+        let dir = tempfile::tempdir().unwrap();
+        let node = Node::new(Config::default(), dir.path().join("config.toml")).unwrap();
+        let (tx, mut rx) = mpsc::channel(1);
+        let (ctl, _ctl_rx) = mpsc::channel(1);
+        *node.peer.lock().unwrap() = Some(PeerLink {
+            epoch: Uuid::new_v4(),
+            tx: tx.clone(),
+            ctl,
+            ready: true,
+            remote: Value::Null,
+        });
+        // TCP 转发等批量数据可以暂时占满写队列；RPC 应排队等待而不是立即 BUSY。
+        tx.try_send(Packet::new(
+            protocol::STREAM_DATA,
+            Uuid::nil(),
+            json!({}),
+            Bytes::new(),
+        ))
+        .unwrap();
+        let caller = node.clone();
+        let call = tokio::spawn(async move {
+            caller
+                .peer_call("system.ping", json!({}), Bytes::new(), 5000)
+                .await
+        });
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert_eq!(rx.recv().await.unwrap().kind, protocol::STREAM_DATA);
+        let request = tokio::time::timeout(Duration::from_secs(2), rx.recv())
+            .await
+            .expect("队列腾出空间后 RPC 请求未写出")
+            .unwrap();
+        assert_eq!(request.kind, protocol::REQUEST);
+        let pending = node.pending.lock().unwrap().remove(&request.id).unwrap();
+        pending.tx.send(Ok(Reply::json(json!("pong")))).unwrap();
+        assert_eq!(call.await.unwrap().unwrap().value, json!("pong"));
     }
 }

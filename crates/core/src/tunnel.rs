@@ -212,8 +212,10 @@ impl Node {
         packet: Packet,
     ) -> Result<()> {
         if packet.kind == protocol::STREAM_OPEN {
-            let node = self.clone();
-            tokio::spawn(async move { node.inbound(epoch, packet).await });
+            // 同步登记：随后同一读循环里到达的 RESET 必须能找到这条流。
+            if let Some((handle, host, port)) = self.accept_open(epoch, ctl, &packet) {
+                tokio::spawn(self.clone().inbound(handle, host, port));
+            }
             return Ok(());
         }
         let mut map = self.tunnels.streams.lock().unwrap();
@@ -317,8 +319,13 @@ impl Node {
         })
     }
 
-    /// Peer side: connect to the requested target and relay.
-    async fn inbound(self: Arc<Self>, epoch: Uuid, packet: Packet) {
+    /// Peer side: validates and registers an incoming stream without awaiting.
+    fn accept_open(
+        self: &Arc<Self>,
+        epoch: Uuid,
+        ctl: &mpsc::Sender<Packet>,
+        packet: &Packet,
+    ) -> Option<(StreamHandle, String, u16)> {
         let id = packet.id;
         let target = packet.meta["target"]
             .as_str()
@@ -334,31 +341,29 @@ impl Node {
             sent: AtomicU64::new(0),
             received: AtomicU64::new(0),
         });
-        let reject = |e: BridgeError| {
-            if let Some(link) = self
-                .peer
-                .lock()
-                .unwrap()
-                .as_ref()
-                .filter(|p| p.epoch == epoch)
-            {
-                send_reset(&link.ctl, id, &e);
+        let registered = split_target(&target).and_then(|(host, port)| {
+            self.register_stream(id, info, Some(epoch))
+                .map(|handle| (handle, host, port))
+        });
+        match registered {
+            Ok(v) => Some(v),
+            Err(e) => {
+                send_reset(ctl, id, &e);
+                self.log(
+                    "warn",
+                    "tunnel",
+                    format!("Rejected stream to {target}: {}", e.message),
+                    id,
+                );
+                None
             }
-            self.log(
-                "warn",
-                "tunnel",
-                format!("Rejected stream to {target}: {}", e.message),
-                id,
-            );
-        };
-        let (host, port) = match split_target(&target) {
-            Ok(v) => v,
-            Err(e) => return reject(e),
-        };
-        let mut handle = match self.register_stream(id, info, Some(epoch)) {
-            Ok(h) => h,
-            Err(e) => return reject(e),
-        };
+        }
+    }
+
+    /// Peer side: connect to the requested target and relay.
+    async fn inbound(self: Arc<Self>, mut handle: StreamHandle, host: String, port: u16) {
+        let id = handle.id;
+        let target = handle.info.target.clone();
         let connect =
             tokio::time::timeout(CONNECT_TIMEOUT, TcpStream::connect((host.as_str(), port)));
         let socket = tokio::select! {
@@ -497,7 +502,13 @@ fn reset_packet(id: Uuid, error: &BridgeError) -> Packet {
 /// Sends RESET without blocking the caller and without dropping it when the
 /// control queue is momentarily full; a lost RESET would leak the peer's stream.
 fn send_reset(ctl: &mpsc::Sender<Packet>, id: Uuid, error: &BridgeError) {
-    if let Err(mpsc::error::TrySendError::Full(packet)) = ctl.try_send(reset_packet(id, error)) {
+    send_control(ctl, reset_packet(id, error));
+}
+
+/// Queues a control frame without blocking the read loop; a full queue defers
+/// the frame instead of dropping it.
+pub(crate) fn send_control(ctl: &mpsc::Sender<Packet>, packet: Packet) {
+    if let Err(mpsc::error::TrySendError::Full(packet)) = ctl.try_send(packet) {
         if let Ok(rt) = tokio::runtime::Handle::try_current() {
             let ctl = ctl.clone();
             rt.spawn(async move {
@@ -824,5 +835,71 @@ mod tests {
         assert!(validate_forwards(&[f("127.0.0.1:10443"), f("127.0.0.1:10443")]).is_err());
         assert!(validate_forwards(&[f("localhost:10443")]).is_err());
         assert!(validate_forwards(&[f("127.0.0.1:0")]).is_err());
+    }
+}
+#[cfg(test)]
+mod race_tests {
+    use super::*;
+    #[tokio::test]
+    async fn control_frame_is_deferred_not_dropped_when_queue_is_full() {
+        let (ctl, mut rx) = mpsc::channel(1);
+        ctl.try_send(Packet::new(
+            protocol::STREAM_ACK,
+            Uuid::nil(),
+            json!({}),
+            Bytes::new(),
+        ))
+        .unwrap();
+        let id = Uuid::new_v4();
+        send_control(
+            &ctl,
+            Packet::new(protocol::RESPONSE, id, json!({}), Bytes::new()),
+        );
+        assert_eq!(rx.recv().await.unwrap().kind, protocol::STREAM_ACK);
+        let next = tokio::time::timeout(Duration::from_secs(1), rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!((next.kind, next.id), (protocol::RESPONSE, id));
+    }
+    #[tokio::test]
+    async fn reset_right_after_open_is_not_lost_before_inbound_registers() {
+        let dir = tempfile::tempdir().unwrap();
+        let node = Node::new(
+            crate::config::Config::default(),
+            dir.path().join("config.toml"),
+        )
+        .unwrap();
+        let target = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let epoch = Uuid::new_v4();
+        let (tx, _rx) = mpsc::channel(8);
+        let (ctl, mut ctl_rx) = mpsc::channel(8);
+        *node.peer.lock().unwrap() = Some(crate::node::PeerLink {
+            epoch,
+            tx,
+            ctl: ctl.clone(),
+            ready: true,
+            remote: json!({"tunnel":1}),
+        });
+        let id = Uuid::new_v4();
+        let open = Packet::new(
+            protocol::STREAM_OPEN,
+            id,
+            json!({"target":target.local_addr().unwrap().to_string()}),
+            Bytes::new(),
+        );
+        let reset = reset_packet(id, &BridgeError::new("STREAM_ABORTED", "Stream aborted"));
+        // 读循环里 OPEN 与 RESET 之间没有 await；RESET 必须作用于这条流。
+        node.tunnel_packet(epoch, &ctl, open).unwrap();
+        node.tunnel_packet(epoch, &ctl, reset).unwrap();
+        let _ = tokio::time::timeout(Duration::from_millis(300), target.accept()).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert!(
+            node.tunnels.streams.lock().unwrap().is_empty(),
+            "OPEN 后立即到达的 RESET 被丢弃，入站流泄漏"
+        );
+        while let Ok(p) = ctl_rx.try_recv() {
+            assert_ne!(p.kind, protocol::STREAM_READY, "已重置的流仍回复了 READY");
+        }
     }
 }
