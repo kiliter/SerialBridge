@@ -226,3 +226,58 @@ async fn peer_disconnect_releases_its_upload_but_preserves_local_upload() {
     .await
     .expect("upload capacity released after asynchronous disconnect cleanup");
 }
+
+#[tokio::test]
+async fn manual_reconnect_reestablishes_the_session_without_auto_reconnect() {
+    let a = support::TestNode::new();
+    let b = support::TestNode::new();
+    // 手动重连语义不依赖自动重连：关闭自动重连时“重新连接”也必须重建会话。
+    a.node.config.write().unwrap().auto_reconnect = false;
+    let port = {
+        let probe = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        probe.local_addr().unwrap().port()
+    };
+    let addr: std::net::SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
+    let task_a = tokio::spawn(serialbridge_core::transport::run(
+        a.node.clone(),
+        serialbridge_core::transport::TransportMode::TcpListen(addr),
+    ));
+    let task_b = tokio::spawn(serialbridge_core::transport::run(
+        b.node.clone(),
+        serialbridge_core::transport::TransportMode::TcpConnect(addr),
+    ));
+    let ready = |node: &std::sync::Arc<serialbridge_core::node::Node>| {
+        node.peer.lock().unwrap().as_ref().is_some_and(|p| p.ready)
+    };
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while !ready(&a.node) || !ready(&b.node) {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("initial handshake");
+    let first = a.node.peer.lock().unwrap().as_ref().unwrap().epoch;
+    a.node.reconnect.notify_one();
+    let reconnected = tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            {
+                let peer = a.node.peer.lock().unwrap();
+                if let Some(p) = peer.as_ref() {
+                    if p.ready && p.epoch != first {
+                        break;
+                    }
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await;
+    a.node.shutdown.cancel();
+    b.node.shutdown.cancel();
+    task_a.await.unwrap();
+    task_b.await.unwrap();
+    assert!(
+        reconnected.is_ok(),
+        "关闭自动重连时，手动重连后链路永久离线"
+    );
+}

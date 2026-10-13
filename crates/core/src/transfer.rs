@@ -990,15 +990,40 @@ impl Node {
             .iter()
             .map(|(id, u)| (*id, u.clone()))
             .collect();
-        for (id, u) in uploads {
-            let expired = {
-                let u = u.lock().await;
-                u.cancel.is_cancelled() || u.last.elapsed() > Duration::from_secs(300)
-            };
-            if expired {
-                let _ = self.remove_artifact(json!({"id":id})).await;
-            }
+        for (id, upload) in uploads {
+            self.abort_stale_upload(id, upload).await;
         }
+    }
+    /// 过期清理与 finish_upload 通过上传锁互斥，但收集列表与拿锁之间存在
+    /// 窗口：finish 可能已经完成发布。拿锁后必须重查过期与任务终态，已到
+    /// 终态的任务绝不被清理撤销。取消记录保留，与手动取消的语义一致。
+    async fn abort_stale_upload(&self, id: Uuid, upload: Arc<AsyncMutex<Upload>>) {
+        let mut u = upload.lock().await;
+        let finished = self
+            .transfers
+            .jobs
+            .lock()
+            .unwrap()
+            .get(&id)
+            .is_some_and(|j| {
+                ["completed", "failed", "cancelled"].contains(&j.view.status.as_str())
+            });
+        let stale = u.cancel.is_cancelled() || u.last.elapsed() > Duration::from_secs(300);
+        if finished || !stale {
+            return;
+        }
+        u.cancel.cancel();
+        u.file.take();
+        self.transfers.failure(id, &cancelled());
+        if let Err(error) = remove_file_if_present(&u.path).await {
+            self.log(
+                "warn",
+                "transfer",
+                format!("Cannot remove stale partial file: {error}"),
+                id,
+            );
+        }
+        self.transfers.uploads.lock().unwrap().remove(&id);
     }
 }
 async fn remove_file_if_present(path: &std::path::Path) -> Result<()> {
@@ -1097,6 +1122,60 @@ mod tests {
         node.create_upload(json!({"filename":"available.bin","total_bytes":0}))
             .await
             .unwrap();
+    }
+    #[tokio::test]
+    async fn stale_upload_is_reaped_and_releases_capacity() {
+        let (_dir, node) = test_node();
+        let start = node
+            .create_upload(json!({"filename":"stale.bin","total_bytes":4}))
+            .await
+            .unwrap();
+        let id = id_param(&start.value).unwrap();
+        let upload = node
+            .transfers
+            .uploads
+            .lock()
+            .unwrap()
+            .get(&id)
+            .cloned()
+            .unwrap();
+        upload.lock().await.last = Instant::now() - Duration::from_secs(400);
+        node.reap_uploads().await;
+        assert_eq!(node.transfers.get(id).unwrap().status, "cancelled");
+        assert!(!node.cfg().download_dir.join(format!("{id}.part")).exists());
+        assert!(node.transfers.uploads.lock().unwrap().is_empty());
+        drop(upload); // 释放测试持有的引用，让 Upload 析构返还容量。
+                      // 容量随清理释放：可以立刻再开两个上传。
+        for filename in ["one", "two"] {
+            node.create_upload(json!({"filename":filename,"total_bytes":0}))
+                .await
+                .unwrap();
+        }
+    }
+    #[tokio::test]
+    async fn reaping_after_a_concurrent_finish_preserves_the_published_file() {
+        let (_dir, node) = test_node();
+        let start = node
+            .create_upload(json!({"filename":"race.bin","total_bytes":0}))
+            .await
+            .unwrap();
+        let id = id_param(&start.value).unwrap();
+        let upload = node
+            .transfers
+            .uploads
+            .lock()
+            .unwrap()
+            .get(&id)
+            .cloned()
+            .unwrap();
+        upload.lock().await.last = Instant::now() - Duration::from_secs(400);
+        // reap 已收集这个过期上传；此刻 finish 抢先完成并发布了文件。
+        node.finish_upload(json!({"id":id})).await.unwrap();
+        // 过期清理随后才拿到上传锁：已完成的任务绝不能被撤销。
+        node.abort_stale_upload(id, upload).await;
+        assert_eq!(node.transfers.get(id).unwrap().status, "completed");
+        let artifact = node.transfers.artifact(id).unwrap();
+        assert!(artifact.path.exists());
     }
     fn test_node() -> (tempfile::TempDir, Arc<Node>) {
         let dir = tempfile::tempdir().unwrap();

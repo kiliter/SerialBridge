@@ -65,9 +65,18 @@ pub async fn run(node: Arc<Node>, mode: TransportMode) {
                 }
             }
         };
-        tokio::select! {
+        let restart = tokio::select! {
             _=node.shutdown.cancelled()=>break,
-            result=attempt=>if let Err(e)=result{node.log("warn","serial",format!("{}: {}",e.code,e.message),"");},
+            result=attempt=>match result{
+                // 会话只在手动重连或关停时正常结束。手动重连必须立即用当前配置
+                // 重建链路：reconnect 通知已被旧会话消费，等待循环里没有任何
+                // 唤醒源，auto_reconnect=false 时否则会话永久离线。
+                Ok(())=>!node.shutdown.is_cancelled(),
+                Err(e)=>{node.log("warn","serial",format!("{}: {}",e.code,e.message),"");false}
+            },
+        };
+        if restart {
+            continue;
         }
         loop {
             // 在线修改自动重连只更新等待策略，不中断当前会话。
