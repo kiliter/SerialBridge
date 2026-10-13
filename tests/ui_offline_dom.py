@@ -2,9 +2,12 @@
 Core APIs are explicit test doubles. This is DOM verification, not native/Rust integration.
 """
 from pathlib import Path
-import json,re
+import json,os,re,subprocess
 from playwright.sync_api import sync_playwright,expect
-ROOT=Path(__file__).resolve().parents[1];OUT=ROOT/'docs/verification'
+ROOT=Path(__file__).resolve().parents[1]
+OUT=Path(os.environ.get('SERIALBRIDGE_UI_TEST_OUTPUT',str(ROOT/'.superpowers/ui-qa'))).resolve()
+# 始终从当前 dist 生成测试 bundle，避免误测旧验证材料中的快照。
+subprocess.run(['node','tests/build-offline-ui.mjs'],cwd=ROOT,env={**os.environ,'SERIALBRIDGE_UI_TEST_OUTPUT':str(OUT)},check=True)
 html=(ROOT/'ui/dist/index.html').read_text();html=re.sub(r'<link[^>]+>','',html);html=re.sub(r'<script[^>]*>.*?</script>','',html,flags=re.S)
 style=(ROOT/'ui/dist/style.css').read_text();bundle=(OUT/'offline-ui-test-bundle.js').read_text()
 fixture=r'''window.fixture={offline:false,peer:true,settings:{node_name:'Node A',serial_port:'/dev/cu.usbserial-TEST',baud_rate:115200,http_port:9527,allowed_origins:['https://example.com'],allowed_methods:['GET','HEAD'],auto_reconnect:true,download_dir:'/fixture/downloads',shared_dir:'/fixture/shared',max_file_bytes:104857600,max_spool_bytes:1073741824,chunk_bytes:8192},logs:[{time:1,level:'info',component:'serial',message:'Peer handshake complete (fixture)',id:'test-01'},{time:2,level:'warn',component:'browser',message:'ORIGIN_NOT_ALLOWED (fixture)',id:'test-02'},{time:3,level:'error',component:'rpc',message:'<img id="injected" src=x onerror="alert(1)">',id:'test-03'}],transfers:[{id:'fixture-complete',filename:'report.json',direction:'receive',target:'peer',status:'completed',stage:'completed',received_bytes:12000,total_bytes:12000,sha256:'fixture-not-a-real-sha256',created_at:1}]};
@@ -12,19 +15,19 @@ window.__TAURI__={core:{invoke:async(command,args)=>{const f=window.fixture;if(f
 results=[]
 def passed(s):results.append(s);print('PASS',s,flush=True)
 with sync_playwright()as p:
- browser=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
+ browser=p.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH') or p.chromium.executable_path,headless=True,args=['--no-sandbox'])
  page=browser.new_page(viewport={'width':1280,'height':900});errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
  page.set_content(html);page.add_style_tag(content=style);page.evaluate(fixture);page.add_script_tag(content=bundle)
  expect(page.locator('#side-name')).to_have_text('Node A')
  # Visible caption prevents these evidence screenshots being mistaken for live hardware.
  page.evaluate("document.querySelector('#demo-banner').textContent='离线 DOM 测试 · 模拟 API · 未连接 Rust、浏览器扩展或串口硬件';document.querySelector('#demo-banner').classList.remove('hidden')")
- expect(page.locator('.stat')).to_have_count(4);expect(page.locator('#injected')).to_have_count(0)
- page.screenshot(path=str(OUT/'ui-offline-overview.png'),full_page=True);passed('four connection cards render escaped fixture data')
+ expect(page.locator('.stat')).to_have_count(5);expect(page.locator('#injected')).to_have_count(0)
+ page.screenshot(path=str(OUT/'ui-offline-overview.png'),full_page=True);passed('五张状态卡展示转义后的测试数据')
  page.locator('[data-page="logs"]').click();expect(page.locator('#log-rows tr')).to_have_count(3);page.locator('#log-query').fill('ORIGIN_NOT_ALLOWED');expect(page.locator('#log-rows tr')).to_have_count(1);page.locator('#log-rows tr').click();expect(page.locator('#dialog-content')).to_contain_text('ORIGIN_NOT_ALLOWED');page.locator('#close-dialog').click();page.locator('#log-query').fill('');page.locator('#pause-logs').click();expect(page.locator('#pause-logs')).to_have_text('继续接收');page.screenshot(path=str(OUT/'ui-offline-logs.png'),full_page=True);passed('log filtering, detail dialog and pause work')
  page.locator('#export-logs').click();expect(page.locator('#toast')).to_contain_text('/fixture/logs.jsonl');passed('export button calls the native-command test double')
  page.locator('[data-page="transfers"]').click();page.locator('#new-download').click();page.locator('#download-form input[name="url"]').fill('https://example.com/report.zip');page.locator('#download-form input[name="filename"]').fill('smoke.zip');page.locator('#download-form button').click();expect(page.locator('#dialog')).not_to_be_visible();row=page.locator('.transfer-live').filter(has_text='smoke.zip');expect(row).to_be_visible();row.locator('[data-cancel]').click();expect(row).to_contain_text('已取消');page.screenshot(path=str(OUT/'ui-offline-transfers.png'),full_page=True);passed('download creation and cancellation update cards')
  page.locator('[data-page="settings"]').click();expect(page.locator('#settings-form')).to_be_visible();page.locator('input[name="node_name"]').fill('Saved Test Node');page.locator('#settings-form button[type="submit"]').click();expect(page.locator('#toast')).to_contain_text('设置已保存');assert page.evaluate('fixture.settings.node_name')=='Saved Test Node';page.locator('#new-pair').click();expect(page.locator('.pair-code')).to_have_text('ABCDEF123456');page.screenshot(path=str(OUT/'ui-offline-settings.png'),full_page=True);passed('settings and pairing UI call their API contracts')
- page.locator('[data-page="overview"]').click();page.evaluate('fixture.peer=false');page.locator('#refresh').click();expect(page.locator('.stat-value').nth(3)).to_have_text('状态未知');passed('remote browser becomes unknown when peer is disconnected')
+ page.locator('[data-page="overview"]').click();page.evaluate('fixture.peer=false');page.locator('#refresh').click();expect(page.locator('.stat').filter(has_text='对端浏览器扩展').locator('.stat-value')).to_have_text('状态未知');passed('remote browser becomes unknown when peer is disconnected')
  page.evaluate('fixture.offline=true');page.locator('#refresh').click();expect(page.locator('#connection-pill')).to_have_text('本机服务未连接');expect(page.locator('#error-banner')).to_be_visible();expect(page.locator('.stat-value').nth(0)).to_have_text('未连接');assert not errors,errors;passed('core failure clears online badges; no optimistic demo fallback')
  browser.close()
 (OUT/'ui-offline-results.json').write_text(json.dumps({'scope':'offline DOM with explicit native-command test doubles, no network/Rust/native platform/hardware integration','passed':results,'count':len(results)},ensure_ascii=False,indent=2))

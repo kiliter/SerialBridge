@@ -2,11 +2,11 @@
 from pathlib import Path
 from functools import partial
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
-import json, threading, time
+import json, os, threading, time
 from playwright.sync_api import sync_playwright, expect
 ROOT=Path(__file__).resolve().parents[1]
-OUT=ROOT/'docs/verification'
-OUT.mkdir(exist_ok=True)
+OUT=Path(os.environ.get('SERIALBRIDGE_UI_TEST_OUTPUT',str(ROOT/'.superpowers/ui-qa')))
+OUT.mkdir(parents=True,exist_ok=True)
 class Quiet(SimpleHTTPRequestHandler):
     def log_message(self,*args): pass
 server=ThreadingHTTPServer(('127.0.0.1',4173),partial(Quiet,directory=str(ROOT/'ui/dist')))
@@ -15,7 +15,7 @@ results=[]
 def passed(name): results.append(name); print('PASS',name,flush=True)
 try:
  with sync_playwright() as p:
-  browser=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
+  browser=p.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH') or p.chromium.executable_path,headless=True,args=['--no-sandbox'])
   page=browser.new_page(viewport={'width':1280,'height':900},device_scale_factor=1)
   errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
   page.goto('http://127.0.0.1:4173/?demo=1')
@@ -74,6 +74,7 @@ try:
     snapshot['peer']['connected']=fixture['peer'];data=snapshot
    elif path=='/v1/logs':data={'logs':[{'time':1,'level':'error','component':'browser','message':'<img id="injected" src=x onerror="alert(1)">','id':'fixture-xss'}]}
    elif path=='/v1/downloads':data={'transfers':[]}
+   elif path=='/v1/tunnels':data={'forwards':[],'streams':[],'total_streams':0}
    else:data={}
    r.fulfill(status=200,content_type='application/json',headers={'access-control-allow-origin':'http://127.0.0.1:4173','access-control-allow-headers':'Authorization,Content-Type'},body=json.dumps(data))
   live.route('http://127.0.0.1:9527/**',route)
@@ -84,7 +85,7 @@ try:
   passed('live mode renders escaped API fixture data, not automatic demo data')
   fixture['peer']=False
   live.locator('#refresh').click()
-  expect(live.locator('.stat-value').nth(3)).to_have_text('状态未知')
+  expect(live.locator('.stat').filter(has_text='对端浏览器扩展').locator('.stat-value')).to_have_text('状态未知')
   passed('peer disconnection invalidates remote browser online status')
   fixture['offline']=True
   live.locator('#refresh').click()
@@ -95,5 +96,6 @@ try:
   browser.close()
 finally:
  server.shutdown()
+ server.server_close()
  (OUT/'ui-smoke-results.json').write_text(json.dumps({'scope':'UI only; demo data and intercepted HTTP fixtures, not Rust/hardware','passed':results,'count':len(results)},ensure_ascii=False,indent=2))
 print(f'{len(results)} UI checks passed')

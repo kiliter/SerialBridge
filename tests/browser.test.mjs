@@ -25,6 +25,13 @@ test('empty and binary bodies remain byte-exact',async()=>{
  assert.deepEqual([...await readLimited(new Response(new Uint8Array([0,255,23])),10)],[0,255,23]);
  assert.equal((await readLimited(new Response(null),10)).byteLength,0);
 });
+test('HEAD 的资源长度不计入空响应体大小',async()=>{
+ const result=await executeFetch({url:'https://example.test/file',method:'HEAD'},policy,new AbortController().signal,{
+  hasPermission:async()=>true,
+  fetch:async()=>new Response(null,{headers:{'content-length':'1048576'}})
+ });
+ assert.equal(result.body,'');
+});
 test('permission check returning after disconnect never calls fetch',async()=>{
  let grant; const permission=new Promise(r=>grant=r); const controller=new AbortController(); let calls=0;
  const run=executeFetch({url:'https://example.test',method:'GET'},policy,controller.signal,{hasPermission:()=>permission,fetch:async()=>{calls++;return new Response('bad')}});

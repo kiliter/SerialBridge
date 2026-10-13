@@ -27,13 +27,13 @@ export function validateRequest(req, policy) {
     return { url: u.href, method, headers, body: req.body };
 }
 export async function readLimited(response, max, signal) {
+    if (!response.body)
+        return new Uint8Array();
     const declared = response.headers.get('content-length');
     if (declared && /^\d+$/.test(declared) && Number(declared) > max) {
         await response.body?.cancel();
         throw Error('RESPONSE_TOO_LARGE');
     }
-    if (!response.body)
-        return new Uint8Array();
     const reader = response.body.getReader();
     const chunks = [];
     let size = 0;

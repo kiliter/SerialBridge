@@ -143,6 +143,8 @@ proxies:
 
 **RPC 请求**（方法：`system.ping`、`http.fetch`、`browser.fetch`）：
 
+下面示例将 `params.method` 改为 `HEAD` 可只查询响应头，返回空响应体；目标资源的 `Content-Length` 不计入 16 KiB 内联响应体上限。
+
 ```bash
 curl -X POST http://127.0.0.1:9527/v1/rpc \
   -H "Authorization: Bearer $SERIALBRIDGE_TOKEN" \
@@ -294,6 +296,7 @@ CI（[`.github/workflows/check.yml`](.github/workflows/check.yml)）在 Windows�
 | [docs/RELEASE.md](docs/RELEASE.md) | 发布制品与安装说明 |
 | [SerialBridge-Delivery-Status.md](SerialBridge-Delivery-Status.md) | 当前版本交付与验证状态 |
 | [docs/verification/REVIEW.md](docs/verification/REVIEW.md) | 代码 review 记录 |
+| [docs/verification/REVIEW-2026-10-13.md](docs/verification/REVIEW-2026-10-13.md) | 本次全量审查、缺陷修复与本机回归结果 |
 | [docs/REFERENCES.md](docs/REFERENCES.md) | 外部参考资料 |
 
 ## 许可证

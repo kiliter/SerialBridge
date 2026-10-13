@@ -69,10 +69,14 @@ pub async fn run(node: Arc<Node>, mode: TransportMode) {
             _=node.shutdown.cancelled()=>break,
             result=attempt=>if let Err(e)=result{node.log("warn","serial",format!("{}: {}",e.code,e.message),"");},
         }
-        if !cfg.auto_reconnect {
-            tokio::select! {_=node.shutdown.cancelled()=>break,_=node.reconnect.notified()=>{}}
-        } else {
-            tokio::select! {_=node.shutdown.cancelled()=>break,_=node.reconnect.notified()=>{},_=tokio::time::sleep(Duration::from_secs(3))=>{}}
+        loop {
+            // 在线修改自动重连只更新等待策略，不中断当前会话。
+            tokio::select! {
+                _=node.shutdown.cancelled()=>return,
+                _=node.reconnect.notified()=>break,
+                _=node.reconnect_policy_changed.notified()=>{},
+                _=tokio::time::sleep(Duration::from_secs(3)), if node.cfg().auto_reconnect=>break,
+            }
         }
     }
 }

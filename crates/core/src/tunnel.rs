@@ -24,7 +24,7 @@ use std::{
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
-    sync::{mpsc, Notify, Semaphore},
+    sync::{mpsc, watch, Notify, Semaphore},
 };
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
@@ -121,6 +121,7 @@ pub struct StreamEntry {
     pub credit: Arc<Semaphore>,
     pub buffered: Arc<AtomicUsize>,
     pub info: Arc<StreamInfo>,
+    reset: watch::Sender<Option<BridgeError>>,
 }
 
 pub struct StreamInfo {
@@ -194,10 +195,12 @@ impl Node {
         };
         for s in lost {
             s.credit.close();
-            let _ = s.events.send(StreamEvent::Reset(BridgeError::new(
+            let error = BridgeError::new(
                 "PEER_DISCONNECTED",
                 "Serial link lost; forwarded connection closed",
-            )));
+            );
+            s.reset.send_replace(Some(error.clone()));
+            let _ = s.events.send(StreamEvent::Reset(error));
         }
     }
 
@@ -229,6 +232,7 @@ impl Node {
                     let error = BridgeError::new("FLOW_CONTROL", "Peer exceeded stream window");
                     if let Some(entry) = map.remove(&packet.id) {
                         entry.credit.close();
+                        entry.reset.send_replace(Some(error.clone()));
                         let _ = entry.events.send(StreamEvent::Reset(error.clone()));
                     }
                     send_reset(ctl, packet.id, &error);
@@ -249,6 +253,7 @@ impl Node {
                     .unwrap_or_else(|_| BridgeError::new("STREAM_RESET", "Peer reset the stream"));
                 if let Some(entry) = map.remove(&packet.id) {
                     entry.credit.close();
+                    entry.reset.send_replace(Some(error.clone()));
                     let _ = entry.events.send(StreamEvent::Reset(error));
                 }
             }
@@ -283,6 +288,7 @@ impl Node {
             return Err(BridgeError::invalid("Duplicate stream ID"));
         }
         let (events_tx, events) = mpsc::unbounded_channel();
+        let (reset_tx, reset) = watch::channel(None);
         let credit = Arc::new(Semaphore::new(WINDOW));
         let buffered = Arc::new(AtomicUsize::new(0));
         map.insert(
@@ -293,6 +299,7 @@ impl Node {
                 credit: credit.clone(),
                 buffered: buffered.clone(),
                 info: info.clone(),
+                reset: reset_tx,
             },
         );
         self.tunnels.total.fetch_add(1, Ordering::Relaxed);
@@ -305,6 +312,7 @@ impl Node {
             credit,
             buffered,
             info,
+            reset,
             done: false,
         })
     }
@@ -511,6 +519,7 @@ pub struct StreamHandle {
     credit: Arc<Semaphore>,
     buffered: Arc<AtomicUsize>,
     info: Arc<StreamInfo>,
+    reset: watch::Receiver<Option<BridgeError>>,
     /// Set when the peer already knows the stream ended (clean close, remote reset, link lost).
     done: bool,
 }
@@ -624,7 +633,16 @@ impl StreamHandle {
                 }
             }
         };
-        let result = tokio::try_join!(upload, download);
+        // RESET 必须能打断阻塞的 socket I/O；接收 FIN 后也要继续监听断链。
+        let result = tokio::select! {
+            result = async { tokio::try_join!(upload, download) } => result,
+            _ = self.reset.changed() => {
+                let error = self.reset.borrow().clone().unwrap_or_else(||
+                    BridgeError::new("PEER_DISCONNECTED", "Stream closed"));
+                Err(BridgeError::new(REMOTE_END, format!("{}: {}", error.code, error.message)))
+            }
+            _ = self.node.shutdown.cancelled() => Err(BridgeError::new("CANCELLED", "Node stopped")),
+        };
         let summary = format!(
             "Stream to {} closed (sent {} B, received {} B)",
             self.info.target,

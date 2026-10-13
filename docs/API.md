@@ -34,6 +34,8 @@
 
 非 UTF-8 小型响应使用 `body_base64` 和 `body_encoding: "base64"`。该编码只用于小型 HTTP JSON 返回；文件不使用 Base64 穿过串口。内联响应最多 16 KiB。
 
+HEAD 的响应体为空；响应头中的 `Content-Length` 描述目标资源大小，不占用内联响应体额度。
+
 远端 HTTP 404/500 是执行结果中的 `status`，不自动改成桥接层失败；下载接口则要求目标 HTTP 返回成功状态。
 
 ## 下载
@@ -46,11 +48,15 @@
 
 完成条件：全部字节落盘、SHA-256 匹配、临时文件重命名。浏览器下载首先在执行节点暂存。取消是尽力而为，不保证撤回已发生的网络写入。失败任务没有可下载的“成功文件”。
 
+浏览器声明已知总长度时，完成前还会核对实际接收字节数。文件句柄容量不足时不发布文件；终态缓存删除遇到磁盘错误时保留句柄，调用方可重试删除。
+
 ## 设置
 
 可通过 PUT 修改：`node_name`、`serial_port`、`baud_rate`、`allowed_origins`、`allowed_methods`、`auto_reconnect`、`http_port`、`chunk_bytes`、`max_file_bytes`、`max_spool_bytes`、`forwards`。
 
 HTTP 端口改变返回 `restart_required: true`。实际监听端口在 `/v1/health` 中保持真实值直到重启，设置文件保存新值。目录路径与凭据不通过该接口修改。
+
+`auto_reconnect` 变更立即更新离线等待策略，不中断已经建立的会话。配对和解除配对也只有在配置保存成功后才更新内存凭据。
 
 ## TCP 转发
 

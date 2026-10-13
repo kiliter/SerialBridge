@@ -4,4 +4,6 @@ const require=createRequire(import.meta.url);let ts;try{ts=require('typescript')
 const modules=['model','types','api','main'];let out='(()=>{const modules={};const cache={};';
 for(const name of modules){const js=fs.readFileSync(`ui/dist/assets/${name}.js`,'utf8');const compiled=ts.transpileModule(js,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;out+=`modules['${name}']=function(module,exports,require){\n${compiled}\n};\n`;}
 out+=`function require(id){id=id.replace('./','').replace('.js','');if(cache[id])return cache[id].exports;const module={exports:{}};cache[id]=module;modules[id](module,module.exports,require);return module.exports;}require('main');})();`;
-fs.writeFileSync('docs/verification/offline-ui-test-bundle.js',out);
+const output=process.env.SERIALBRIDGE_UI_TEST_OUTPUT??'.superpowers/ui-qa';
+fs.mkdirSync(output,{recursive:true});
+fs.writeFileSync(path.join(output,'offline-ui-test-bundle.js'),out);

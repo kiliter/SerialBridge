@@ -12,18 +12,24 @@ function schedule():void{
  if(!enabled)return;clearTimeout(reconnectTimer);reconnectTimer=setTimeout(()=>{void connect()},retry);retry=Math.min(30000,retry*2);
 }
 async function connect():Promise<void>{
- if(connecting||socket)return;connecting=true;
+ if(connecting||socket)return;connecting=true;const epoch=++generation;
  try{
-  const saved=await chrome.storage.local.get(['enabled','port','token','pairCode']);enabled=saved.enabled===true;
+  const saved=await chrome.storage.local.get(['enabled','port','token','pairCode']);
+  if(epoch!==generation)return;
+  enabled=saved.enabled===true;
   if(!enabled){setStatus('disconnected','连接已暂停');return}
   const port=Number(saved.port??9527);if(!Number.isInteger(port)||port<1||port>65535)throw Error('INVALID_LOCAL_PORT');status.port=port;
   if(!saved.token&&!saved.pairCode){setStatus('pairing','请在桌面设置中生成配对码');return}
-  const epoch=++generation;const ws=new WebSocket(`ws://127.0.0.1:${port}/v1/extension/ws`);socket=ws;ws.binaryType='arraybuffer';authenticated=false;setStatus('connecting','正在连接本机服务…');
+  const ws=new WebSocket(`ws://127.0.0.1:${port}/v1/extension/ws`);socket=ws;ws.binaryType='arraybuffer';authenticated=false;setStatus('connecting','正在连接本机服务…');
   ws.onopen=()=>{if(epoch!==generation)return;ws.send(JSON.stringify(saved.pairCode?{type:'pair',code:saved.pairCode}:{type:'auth',token:saved.token}));};
   ws.onmessage=event=>{void handleMessage(ws,epoch,event.data).catch(()=>{if(ws===socket){setStatus('error','本机服务消息异常');ws.close()}})};
   ws.onerror=()=>{if(ws===socket)setStatus('error','连接失败：检查本机服务、端口和配对')};
   ws.onclose=()=>{if(ws!==socket)return;socket=null;authenticated=false;clearInterval(heartbeat);cancelAll();if(status.state!=='error')setStatus('disconnected','本机服务已断开');schedule()};
- }catch{setStatus('error','无法读取配置或创建本地连接');schedule()}finally{connecting=false}
+ }catch{if(epoch===generation){setStatus('error','无法读取配置或创建本地连接');schedule()}}finally{
+  connecting=false;
+  // 旧配置读取被重启操作替代后，立即读取新配置，不能遗失这次连接请求。
+  if(epoch!==generation&&enabled)void connect();
+ }
 }
 function policyFrom(v:unknown):Policy & {maxFileBytes:number}{
  if(!v||typeof v!=='object')throw Error('MISSING_POLICY');
@@ -38,6 +44,7 @@ async function handleMessage(ws:WebSocket,epoch:number,data:unknown):Promise<voi
  if(m.type==='ready'){
   authenticated=true;retry=1000;
   if(typeof m.token==='string')await chrome.storage.local.set({token:m.token});
+  if(epoch!==generation||ws!==socket)return;
   await chrome.storage.local.remove('pairCode');
   if(epoch!==generation||ws!==socket)return;
   status.node=String(m.node??'SerialBridge');setStatus('connected','已连接本机 SerialBridge');clearInterval(heartbeat);
@@ -65,7 +72,7 @@ async function handleMessage(ws:WebSocket,epoch:number,data:unknown):Promise<voi
    const result=await executeFetch(req,policy,controller.signal,deps);controller.signal.throwIfAborted();send(ws,{type:'task.result',id,result});
   }else if(m.method==='browser.download'){
    const res=await authorizedFetch(req,policy,controller.signal,deps);if(!res.ok){await res.body?.cancel();throw Error(`HTTP_${res.status}`)}
-   const header=res.headers.get('content-length');const compressed=Boolean(res.headers.get('content-encoding'));const total=!compressed&&header&&/^\d+$/.test(header)?Number(header):null;
+   const header=res.headers.get('content-length');const compressed=Boolean(res.headers.get('content-encoding'));const total=!res.body?0:!compressed&&header&&/^\d+$/.test(header)?Number(header):null;
    if(total!==null&&total>policy.maxFileBytes){await res.body?.cancel();throw Error('FILE_TOO_LARGE')}
    send(ws,{type:'download.begin',id,total_bytes:total});
    let offset=0;
@@ -93,7 +100,7 @@ async function dispatch(message:unknown):Promise<unknown>{
   const prev=await chrome.storage.local.get(['port']);if(Number(prev.port??9527)!==port)await chrome.storage.local.remove('token');
   await chrome.storage.local.set({port,enabled:true,...(code?{pairCode:code}:{})});enabled=true;restart();return {ok:true};
  }
- if(m.type==='disconnect'){enabled=false;await chrome.storage.local.set({enabled:false});clearTimeout(reconnectTimer);clearInterval(heartbeat);cancelAll();socket?.close();setStatus('disconnected','连接已暂停');return{ok:true}}
+ if(m.type==='disconnect'){enabled=false;generation++;clearTimeout(reconnectTimer);clearInterval(heartbeat);cancelAll();const old=socket;socket=null;authenticated=false;old?.close();setStatus('disconnected','连接已暂停');await chrome.storage.local.set({enabled:false});return{ok:true}}
  if(m.type==='reconnect'){enabled=true;await chrome.storage.local.set({enabled:true});restart();return{ok:true}}
  throw Error('不支持的操作');
 }

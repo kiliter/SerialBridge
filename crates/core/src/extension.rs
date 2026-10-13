@@ -35,9 +35,11 @@ impl Node {
     }
     pub fn revoke_browser(&self) -> Result<()> {
         let mut cfg = self.config.write().unwrap();
-        cfg.extension_origin = None;
-        cfg.extension_token = None;
-        cfg.save(&self.config_path)?;
+        let mut next = cfg.clone();
+        next.extension_origin = None;
+        next.extension_token = None;
+        next.save(&self.config_path)?;
+        *cfg = next;
         drop(cfg);
         *self.pairing.lock().unwrap() = None;
         if let Some(link) = self.browser.lock().unwrap().take() {
@@ -88,13 +90,14 @@ impl Node {
                         "Pairing code invalid, expired or locked",
                     ));
                 }
-                *pairing = None;
-                drop(pairing);
                 let token = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
                 let mut cfg = self.config.write().unwrap();
-                cfg.extension_origin = Some(origin.to_string());
-                cfg.extension_token = Some(token.clone());
-                cfg.save(&self.config_path)?;
+                let mut next = cfg.clone();
+                next.extension_origin = Some(origin.to_string());
+                next.extension_token = Some(token.clone());
+                next.save(&self.config_path)?;
+                *cfg = next;
+                *pairing = None;
                 Ok(Some(token))
             }
             _ => Err(BridgeError::new(
@@ -157,6 +160,44 @@ pub async fn serve_socket(node: Arc<Node>, mut ws: WebSocket, origin: String) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn failed_pairing_save_preserves_credentials_and_pairing_code() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        std::fs::create_dir(&path).unwrap();
+        let node = Node::new(crate::config::Config::default(), path).unwrap();
+        let code = node.new_pair_code()["code"].as_str().unwrap().to_string();
+        let origin = "chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        assert!(node
+            .authenticate_browser(origin, &json!({"type":"pair","code":code}))
+            .is_err());
+        assert!(node.cfg().extension_token.is_none());
+        assert!(node.cfg().extension_origin.is_none());
+        assert!(node.pairing.lock().unwrap().is_some());
+        assert_eq!(
+            std::fs::read_dir(dir.path())
+                .unwrap()
+                .filter_map(|e| e.ok())
+                .filter(|e| e.file_name().to_string_lossy().starts_with(".config-"))
+                .count(),
+            0
+        );
+    }
+    #[test]
+    fn failed_revoke_save_preserves_credentials() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        std::fs::create_dir(&path).unwrap();
+        let cfg = crate::config::Config {
+            extension_origin: Some("chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into()),
+            extension_token: Some("test-only-extension-credential".into()),
+            ..Default::default()
+        };
+        let node = Node::new(cfg.clone(), path).unwrap();
+        assert!(node.revoke_browser().is_err());
+        assert_eq!(node.cfg().extension_origin, cfg.extension_origin);
+        assert_eq!(node.cfg().extension_token, cfg.extension_token);
+    }
     #[test]
     fn extension_origin_is_strict() {
         assert!(valid_origin(

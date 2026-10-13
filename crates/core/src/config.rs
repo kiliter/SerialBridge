@@ -100,7 +100,13 @@ impl Config {
     }
     pub fn load(path: &Path) -> Result<Self> {
         let mut cfg = if path.exists() {
-            toml::from_str::<Config>(&std::fs::read_to_string(path)?).map_err(BridgeError::io)?
+            toml::from_str::<Config>(&std::fs::read_to_string(path)?).map_err(|error| {
+                // TOML 默认错误文本包含原始行，可能将 Token 写入启动日志。
+                BridgeError::invalid(format!(
+                    "Invalid configuration TOML near byte {}",
+                    error.span().map(|span| span.start).unwrap_or(0)
+                ))
+            })?
         } else {
             Self::default()
         };
@@ -139,17 +145,23 @@ impl Config {
             use std::os::unix::fs::OpenOptionsExt;
             options.mode(0o600);
         }
-        let mut f = options.open(&tmp)?;
-        use std::io::Write;
-        f.write_all(
-            toml::to_string_pretty(self)
-                .map_err(BridgeError::io)?
-                .as_bytes(),
-        )?;
-        f.sync_all()?;
-        drop(f);
-        std::fs::rename(&tmp, path)?;
-        Ok(())
+        let result = (|| {
+            let mut f = options.open(&tmp)?;
+            use std::io::Write;
+            f.write_all(
+                toml::to_string_pretty(self)
+                    .map_err(BridgeError::io)?
+                    .as_bytes(),
+            )?;
+            f.sync_all()?;
+            drop(f);
+            std::fs::rename(&tmp, path)?;
+            Ok(())
+        })();
+        if result.is_err() {
+            let _ = std::fs::remove_file(&tmp);
+        }
+        result
     }
 }
 pub fn default_path() -> PathBuf {
@@ -187,6 +199,26 @@ pub fn safe_filename(name: &str) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn invalid_configuration_does_not_echo_credentials() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("config.toml");
+        let sentinel = "test-only-private-credential-do-not-log";
+        std::fs::write(&path, format!("api_token = \"{sentinel}\" invalid\n")).unwrap();
+        let error = Config::load(&path).unwrap_err();
+        assert!(
+            !error.message.contains(sentinel),
+            "配置解析错误泄露了原始凭据行"
+        );
+    }
+    #[test]
+    fn failed_save_removes_credential_temporary_file() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("config.toml");
+        std::fs::create_dir(&path).unwrap();
+        assert!(Config::default().save(&path).is_err());
+        assert_eq!(std::fs::read_dir(root.path()).unwrap().count(), 1);
+    }
     #[test]
     fn rejects_traversal_and_reserved_names() {
         for s in [

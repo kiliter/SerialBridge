@@ -195,6 +195,27 @@ impl Transfers {
         f.insert(id, artifact);
         Ok(())
     }
+    fn publish(&self, id: Uuid, partial: &std::path::Path, artifact: Artifact) -> Result<()> {
+        let mut jobs = self.jobs.lock().unwrap();
+        let job = jobs.get_mut(&id).ok_or_else(cancelled)?;
+        if job.cancel.is_cancelled() {
+            return Err(cancelled());
+        }
+        let mut files = self.files.lock().unwrap();
+        if files.len() >= 200 && !files.contains_key(&id) {
+            return Err(BridgeError::new("BUSY", "File handle limit reached"));
+        }
+        // 文件已 flush/sync；重命名、登记和完成状态之间不允许取消或 await。
+        // 先检查容量，避免重命名成功后留下未登记且无法移除的文件。
+        std::fs::rename(partial, &artifact.path)?;
+        job.view.status = "completed".into();
+        job.view.stage = "completed".into();
+        job.view.received_bytes = artifact.size;
+        job.view.total_bytes = Some(artifact.size);
+        job.view.sha256 = Some(artifact.sha256.clone());
+        files.insert(id, artifact);
+        Ok(())
+    }
     pub fn cancel(&self, id: Uuid) -> Result<()> {
         let jobs = self.jobs.lock().unwrap();
         let j = jobs
@@ -346,11 +367,12 @@ impl Node {
         let cfg = self.cfg();
         let _budget = self.budget(cfg.max_file_bytes).await?;
         let path = cfg.download_dir.join(format!("{id}.part"));
-        let mut file = File::options()
-            .write(true)
-            .create_new(true)
-            .open(&path)
-            .await?;
+        let mut file = File::from_std(
+            std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&path)?,
+        );
         let mut hash = Sha256::new();
         let mut received = 0u64;
         self.transfers.update(id, |j| {
@@ -360,6 +382,7 @@ impl Node {
         if executor == "browser" {
             let mut task = self.begin_browser("browser.download", params).await?;
             let mut began = false;
+            let mut declared = None;
             loop {
                 match task.next().await? {
                     BrowserEvent::Meta(v) => match v["type"].as_str() {
@@ -369,6 +392,7 @@ impl Node {
                             }
                             began = true;
                             let total = v["total_bytes"].as_u64();
+                            declared = total;
                             if total.is_some_and(|n| n > cfg.max_file_bytes) {
                                 return Err(BridgeError::new(
                                     "FILE_TOO_LARGE",
@@ -378,7 +402,10 @@ impl Node {
                             self.transfers.update(id, |j| j.total_bytes = total);
                         }
                         Some("download.end") => {
-                            if !began || v["total_bytes"].as_u64() != Some(received) {
+                            if !began
+                                || v["total_bytes"].as_u64() != Some(received)
+                                || declared.is_some_and(|total| total != received)
+                            {
                                 return Err(BridgeError::invalid(
                                     "Browser download length mismatch",
                                 ));
@@ -404,6 +431,9 @@ impl Node {
                             return Err(BridgeError::invalid("Browser chunk offset mismatch"));
                         }
                         received += data.len() as u64;
+                        if declared.is_some_and(|total| received > total) {
+                            return Err(BridgeError::invalid("Browser download length mismatch"));
+                        }
                         if received > cfg.max_file_bytes {
                             return Err(BridgeError::new(
                                 "FILE_TOO_LARGE",
@@ -454,9 +484,9 @@ impl Node {
         drop(file);
         let sha = format!("{:x}", hash.finalize());
         let final_path = cfg.download_dir.join(format!("{id}-{filename}"));
-        fs::rename(path, &final_path).await?;
-        self.transfers.register(
+        self.transfers.publish(
             id,
+            &path,
             Artifact {
                 path: final_path,
                 filename,
@@ -466,12 +496,6 @@ impl Node {
                 peer_session: None,
             },
         )?;
-        self.transfers.update(id, |j| {
-            j.status = "completed".into();
-            j.stage = "completed".into();
-            j.total_bytes = Some(received);
-            j.sha256 = Some(sha)
-        });
         self.log(
             "info",
             "transfer",
@@ -488,13 +512,14 @@ impl Node {
     pub async fn cancel_transfer(&self, id: Uuid) -> Result<()> {
         self.transfers.cancel(id)?;
         self.transfers.failure(id, &cancelled());
-        let upload = { self.transfers.uploads.lock().unwrap().remove(&id) };
+        let upload = { self.transfers.uploads.lock().unwrap().get(&id).cloned() };
         if let Some(upload) = upload {
             let mut u = upload.lock().await;
             u.file.take();
-            let cleanup = fs::remove_file(&u.path).await;
+            let cleanup = remove_file_if_present(&u.path).await;
             self.transfers.failure(id, &cancelled());
             cleanup?;
+            self.transfers.uploads.lock().unwrap().remove(&id);
         }
         Ok(())
     }
@@ -563,11 +588,12 @@ impl Node {
         let cfg = self.cfg();
         let _budget = self.budget(total).await?;
         let path = cfg.download_dir.join(format!("{id}.part"));
-        let mut file = File::options()
-            .write(true)
-            .create_new(true)
-            .open(&path)
-            .await?;
+        let mut file = File::from_std(
+            std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&path)?,
+        );
         let mut hash = Sha256::new();
         let mut offset = 0u64;
         self.transfers.update(id, |j| {
@@ -605,9 +631,9 @@ impl Node {
         file.sync_all().await?;
         drop(file);
         let final_path = cfg.download_dir.join(format!("{id}-{filename}"));
-        fs::rename(&path, &final_path).await?;
-        self.transfers.register(
+        self.transfers.publish(
             id,
+            &path,
             Artifact {
                 path: final_path,
                 filename,
@@ -617,11 +643,6 @@ impl Node {
                 peer_session: None,
             },
         )?;
-        self.transfers.update(id, |j| {
-            j.status = "completed".into();
-            j.stage = "completed".into();
-            j.sha256 = Some(actual)
-        });
         self.log("info", "transfer", "File received; SHA-256 matches", id);
         Ok(())
     }
@@ -757,13 +778,13 @@ impl Node {
             j.total_bytes = Some(total)
         });
         let path = self.cfg().download_dir.join(format!("{id}.part"));
-        let file = match File::options()
+        // 创建文件和登记上传之间不能被取消，否则没有句柄可供断线清理。
+        let file = match std::fs::OpenOptions::new()
             .create_new(true)
             .write(true)
             .open(&path)
-            .await
         {
-            Ok(file) => file,
+            Ok(file) => File::from_std(file),
             Err(error) => {
                 let error = BridgeError::io(error);
                 self.transfers.failure(id, &error);
@@ -867,9 +888,9 @@ impl Node {
             file.sync_all().await?;
             drop(file);
             let final_path = self.cfg().download_dir.join(format!("{id}-{}", u.filename));
-            fs::rename(&u.path, &final_path).await?;
-            self.transfers.register(
+            self.transfers.publish(
                 id,
+                &u.path,
                 Artifact {
                     path: final_path,
                     filename: u.filename.clone(),
@@ -879,12 +900,6 @@ impl Node {
                     peer_session: None,
                 },
             )?;
-            self.transfers.update(id, |j| {
-                j.status = "completed".into();
-                j.stage = "completed".into();
-                j.received_bytes = u.total;
-                j.sha256 = Some(actual.clone())
-            });
             self.log(
                 "info",
                 "transfer",
@@ -940,18 +955,21 @@ impl Node {
     }
     pub async fn remove_artifact(&self, p: Value) -> Result<Reply> {
         let id = id_param(&p)?;
-        let upload = { self.transfers.uploads.lock().unwrap().remove(&id) };
+        let upload = { self.transfers.uploads.lock().unwrap().get(&id).cloned() };
         if let Some(u) = upload {
             let mut u = u.lock().await;
+            u.cancel.cancel();
             u.file.take();
-            let _ = fs::remove_file(&u.path).await;
             self.transfers.failure(id, &cancelled());
+            remove_file_if_present(&u.path).await?;
+            self.transfers.uploads.lock().unwrap().remove(&id);
         }
-        let artifact = { self.transfers.files.lock().unwrap().remove(&id) };
+        let artifact = { self.transfers.files.lock().unwrap().get(&id).cloned() };
         if let Some(a) = artifact {
             if a.owned {
-                fs::remove_file(a.path).await?;
+                remove_file_if_present(&a.path).await?;
             }
+            self.transfers.files.lock().unwrap().remove(&id);
         }
         {
             let mut jobs = self.transfers.jobs.lock().unwrap();
@@ -983,6 +1001,13 @@ impl Node {
         }
     }
 }
+async fn remove_file_if_present(path: &std::path::Path) -> Result<()> {
+    match fs::remove_file(path).await {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(e.into()),
+    }
+}
 async fn hash_file(path: &PathBuf) -> Result<String> {
     let mut file = File::open(path).await?;
     let mut h = Sha256::new();
@@ -999,6 +1024,33 @@ async fn hash_file(path: &PathBuf) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn dropping_upload_creation_does_not_leave_an_unreturned_running_job() {
+        use std::{future::Future, task::Poll};
+        let (_dir, node) = test_node();
+        let mut create =
+            Box::pin(node.create_upload(json!({"filename":"cancel-create.bin","total_bytes":0})));
+        let returned = std::future::poll_fn(|cx| match create.as_mut().poll(cx) {
+            Poll::Ready(result) => Poll::Ready(Some(result.unwrap())),
+            Poll::Pending if !node.transfers.list().is_empty() => Poll::Ready(None),
+            Poll::Pending => Poll::Pending,
+        })
+        .await;
+        drop(create);
+        if let Some(reply) = returned {
+            node.remove_artifact(json!({"id":reply.value["id"]}))
+                .await
+                .unwrap();
+        }
+        assert!(
+            node.transfers.list().iter().all(|j| j.status != "running"),
+            "取消 file.create 后留下未返回给调用方的活动任务"
+        );
+        assert_eq!(
+            std::fs::read_dir(node.cfg().download_dir).unwrap().count(),
+            0
+        );
+    }
     #[tokio::test]
     async fn stale_peer_session_cannot_create_transfer_resources() {
         let (_dir, node) = test_node();

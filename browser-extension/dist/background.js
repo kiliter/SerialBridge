@@ -27,8 +27,11 @@ async function connect() {
     if (connecting || socket)
         return;
     connecting = true;
+    const epoch = ++generation;
     try {
         const saved = await chrome.storage.local.get(['enabled', 'port', 'token', 'pairCode']);
+        if (epoch !== generation)
+            return;
         enabled = saved.enabled === true;
         if (!enabled) {
             setStatus('disconnected', '连接已暂停');
@@ -42,7 +45,6 @@ async function connect() {
             setStatus('pairing', '请在桌面设置中生成配对码');
             return;
         }
-        const epoch = ++generation;
         const ws = new WebSocket(`ws://127.0.0.1:${port}/v1/extension/ws`);
         socket = ws;
         ws.binaryType = 'arraybuffer';
@@ -61,11 +63,16 @@ async function connect() {
             setStatus('disconnected', '本机服务已断开'); schedule(); };
     }
     catch {
-        setStatus('error', '无法读取配置或创建本地连接');
-        schedule();
+        if (epoch === generation) {
+            setStatus('error', '无法读取配置或创建本地连接');
+            schedule();
+        }
     }
     finally {
         connecting = false;
+        // 旧配置读取被重启操作替代后，立即读取新配置，不能遗失这次连接请求。
+        if (epoch !== generation && enabled)
+            void connect();
     }
 }
 function policyFrom(v) {
@@ -87,6 +94,8 @@ async function handleMessage(ws, epoch, data) {
         retry = 1000;
         if (typeof m.token === 'string')
             await chrome.storage.local.set({ token: m.token });
+        if (epoch !== generation || ws !== socket)
+            return;
         await chrome.storage.local.remove('pairCode');
         if (epoch !== generation || ws !== socket)
             return;
@@ -150,7 +159,7 @@ async function handleMessage(ws, epoch, data) {
             }
             const header = res.headers.get('content-length');
             const compressed = Boolean(res.headers.get('content-encoding'));
-            const total = !compressed && header && /^\d+$/.test(header) ? Number(header) : null;
+            const total = !res.body ? 0 : !compressed && header && /^\d+$/.test(header) ? Number(header) : null;
             if (total !== null && total > policy.maxFileBytes) {
                 await res.body?.cancel();
                 throw Error('FILE_TOO_LARGE');
@@ -222,12 +231,16 @@ async function dispatch(message) {
     }
     if (m.type === 'disconnect') {
         enabled = false;
-        await chrome.storage.local.set({ enabled: false });
+        generation++;
         clearTimeout(reconnectTimer);
         clearInterval(heartbeat);
         cancelAll();
-        socket?.close();
+        const old = socket;
+        socket = null;
+        authenticated = false;
+        old?.close();
         setStatus('disconnected', '连接已暂停');
+        await chrome.storage.local.set({ enabled: false });
         return { ok: true };
     }
     if (m.type === 'reconnect') {

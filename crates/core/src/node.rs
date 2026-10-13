@@ -102,6 +102,7 @@ pub struct Node {
     pub tunnels: crate::tunnel::Tunnels,
     pub shutdown: CancellationToken,
     pub reconnect: tokio::sync::Notify,
+    pub reconnect_policy_changed: tokio::sync::Notify,
     pub client: reqwest::Client,
 }
 impl Node {
@@ -127,6 +128,7 @@ impl Node {
             tunnels: Default::default(),
             shutdown: CancellationToken::new(),
             reconnect: tokio::sync::Notify::new(),
+            reconnect_policy_changed: tokio::sync::Notify::new(),
             client,
         }))
     }
@@ -199,6 +201,7 @@ impl Node {
         next.validate()?;
         let restart = next.http_port != self.listen_port;
         let reconnect = next.serial_port != lock.serial_port || next.baud_rate != lock.baud_rate;
+        let policy_changed = next.auto_reconnect != lock.auto_reconnect;
         let forwards_changed = next.forwards != lock.forwards;
         next.save(&self.config_path)?;
         // A listening socket cannot change address in place; keep runtime port truthful until restart.
@@ -206,6 +209,9 @@ impl Node {
         drop(lock);
         if reconnect {
             self.reconnect.notify_one();
+        }
+        if policy_changed {
+            self.reconnect_policy_changed.notify_one();
         }
         if forwards_changed {
             self.tunnels.changed.notify_one();

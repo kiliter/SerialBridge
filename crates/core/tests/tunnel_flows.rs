@@ -185,6 +185,33 @@ async fn link_loss_resets_forwarded_connections() {
 }
 
 #[tokio::test]
+async fn link_loss_releases_a_stream_after_receiving_fin() {
+    let mut pair = Pair::new(4096).await;
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let listen = forward(&pair, &listener.local_addr().unwrap().to_string()).await;
+    let mut client = TcpStream::connect(&listen).await.unwrap();
+    let (mut target, _) = listener.accept().await.unwrap();
+    client.shutdown().await.unwrap();
+    let mut data = Vec::new();
+    tokio::time::timeout(Duration::from_secs(3), target.read_to_end(&mut data))
+        .await
+        .unwrap()
+        .unwrap();
+    let retained = {
+        let streams = pair.b.node.tunnels.streams.lock().unwrap();
+        std::sync::Arc::downgrade(&streams.values().next().unwrap().info)
+    };
+    pair.disconnect().await;
+    tokio::time::timeout(Duration::from_secs(1), async {
+        while retained.upgrade().is_some() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("断链后半关闭的转发任务仍持有目标 socket");
+}
+
+#[tokio::test]
 async fn closing_the_client_aborts_the_peer_side() {
     let pair = Pair::new(4096).await;
     // Target never closes on its own.
@@ -227,7 +254,7 @@ async fn invalid_forwards_are_rejected_by_settings() {
 
 #[tokio::test]
 async fn a_stalled_stream_does_not_block_other_streams() {
-    let pair = Pair::new(4096).await;
+    let mut pair = Pair::new(4096).await;
     let echo = echo_server().await;
     // Second target accepts but never reads, so its window fills up.
     let stall = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -297,6 +324,24 @@ async fn a_stalled_stream_does_not_block_other_streams() {
         .expect("healthy stream progresses while another is stalled")
         .unwrap();
     assert_eq!(back, msg);
+    let retained: Vec<_> = pair
+        .b
+        .node
+        .tunnels
+        .streams
+        .lock()
+        .unwrap()
+        .values()
+        .map(|s| std::sync::Arc::downgrade(&s.info))
+        .collect();
+    pair.disconnect().await;
+    tokio::time::timeout(Duration::from_secs(1), async {
+        while retained.iter().any(|s| s.upgrade().is_some()) {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("断链后阻塞写入的转发任务未退出");
     flood.abort();
 }
 

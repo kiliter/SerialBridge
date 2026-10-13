@@ -64,6 +64,66 @@ async fn failed_file_publication_records_failure_and_releases_capacity() {
 }
 
 #[tokio::test]
+async fn full_handle_table_does_not_leave_an_untracked_published_upload() {
+    let fixture = TestNode::new();
+    let n = &fixture.node;
+    tokio::fs::write(n.cfg().shared_dir.join("shared.bin"), b"shared")
+        .await
+        .unwrap();
+    for _ in 0..200 {
+        n.open_shared(json!({"filename":"shared.bin"}))
+            .await
+            .unwrap();
+    }
+    let start = n
+        .create_upload(json!({"filename":"upload.bin","total_bytes":0}))
+        .await
+        .unwrap();
+    let tid = id(&start.value);
+    assert_eq!(
+        n.finish_upload(json!({"id":tid})).await.unwrap_err().code,
+        "BUSY"
+    );
+    assert_eq!(n.transfers.get(tid).unwrap().status, "failed");
+    assert!(n.transfers.artifact(tid).is_err());
+    assert_eq!(
+        std::fs::read_dir(n.cfg().download_dir).unwrap().count(),
+        0,
+        "发布失败后留下了无法从 API 移除的文件"
+    );
+    for name in ["one.bin", "two.bin"] {
+        n.create_upload(json!({"filename":name,"total_bytes":0}))
+            .await
+            .unwrap();
+    }
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn failed_artifact_deletion_can_be_retried() {
+    use std::os::unix::fs::PermissionsExt;
+    let fixture = TestNode::new();
+    let n = &fixture.node;
+    let start = n
+        .create_upload(json!({"filename":"retry.bin","total_bytes":0}))
+        .await
+        .unwrap();
+    let tid = id(&start.value);
+    n.finish_upload(json!({"id":tid})).await.unwrap();
+    let directory = n.cfg().download_dir;
+    std::fs::set_permissions(&directory, std::fs::Permissions::from_mode(0o555)).unwrap();
+    let result = n.remove_artifact(json!({"id":tid})).await;
+    std::fs::set_permissions(&directory, std::fs::Permissions::from_mode(0o755)).unwrap();
+    assert!(result.is_err());
+    assert!(
+        n.transfers.artifact(tid).is_ok(),
+        "删除失败后丢失了文件句柄"
+    );
+    n.remove_artifact(json!({"id":tid})).await.unwrap();
+    assert_eq!(std::fs::read_dir(directory).unwrap().count(), 0);
+}
+
+#[tokio::test]
 async fn cancelling_an_incoming_upload_updates_status_and_releases_capacity() {
     let fixture = TestNode::new();
     let n = &fixture.node;

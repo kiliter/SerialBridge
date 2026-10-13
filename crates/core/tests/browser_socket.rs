@@ -254,3 +254,26 @@ async fn actual_core_accepts_acknowledged_browser_binary_download_and_hashes_it(
         data
     );
 }
+
+#[tokio::test]
+async fn truncated_browser_download_is_not_published() {
+    let server = Server::new().await;
+    let n = &server.fixture.node;
+    n.config.write().unwrap().allowed_origins = vec!["https://example.test".into()];
+    let (mut socket, _) = server.paired().await;
+    let started = n.start_source_download(json!({"executor":"browser","url":"https://example.test/file","filename":"truncated.bin"})).unwrap();
+    let id = uuid::Uuid::parse_str(started.value["id"].as_str().unwrap()).unwrap();
+    let task = message(&mut socket).await;
+    for value in [
+        json!({"type":"download.begin","id":task["id"],"total_bytes":10}),
+        json!({"type":"download.end","id":task["id"],"total_bytes":0}),
+    ] {
+        socket
+            .send(Message::Text(value.to_string().into()))
+            .await
+            .unwrap();
+    }
+    let view = completed(n, id).await;
+    assert_eq!(view.status, "failed");
+    assert!(n.transfers.artifact(id).is_err());
+}

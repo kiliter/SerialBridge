@@ -5,6 +5,64 @@ use std::time::Duration;
 use support::Pair;
 
 #[tokio::test]
+async fn enabling_auto_reconnect_wakes_an_offline_transport() {
+    let fixture = support::TestNode::new();
+    let node = &fixture.node;
+    node.config.write().unwrap().auto_reconnect = false;
+    let task = tokio::spawn(serialbridge_core::transport::run(
+        node.clone(),
+        serialbridge_core::transport::TransportMode::Serial,
+    ));
+    let attempts = || {
+        node.logs
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|e| e.component == "serial")
+            .count()
+    };
+    tokio::time::timeout(Duration::from_secs(1), async {
+        while attempts() == 0 {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    node.update_settings(json!({"auto_reconnect":true}))
+        .unwrap();
+    let retried = tokio::time::timeout(Duration::from_secs(4), async {
+        while attempts() < 2 {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await;
+    node.shutdown.cancel();
+    task.await.unwrap();
+    assert!(retried.is_ok(), "启用自动重连后传输仍在无限等待手动重连");
+}
+
+#[tokio::test]
+async fn changing_auto_reconnect_preserves_an_established_session() {
+    let pair = Pair::new(1024).await;
+    let epoch = pair.a.node.peer.lock().unwrap().as_ref().unwrap().epoch;
+    for enabled in [false, true] {
+        pair.a
+            .node
+            .update_settings(json!({"auto_reconnect":enabled}))
+            .unwrap();
+        pair.a
+            .node
+            .peer_call("system.ping", json!({}), Bytes::new(), 1000)
+            .await
+            .unwrap();
+        assert_eq!(
+            pair.a.node.peer.lock().unwrap().as_ref().unwrap().epoch,
+            epoch
+        );
+    }
+}
+
+#[tokio::test]
 async fn bidirectional_binary_writes_progress_with_small_transport_buffers() {
     let pair = Pair::new(1024).await;
     let a = &pair.a.node;

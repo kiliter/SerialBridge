@@ -49,6 +49,8 @@ WebSocket 二进制消息：`JSON length:u32BE + JSON metadata + raw bytes`。me
 
 扩展发送一个块，等待 Rust 写入后返回的 `chunk.ack.offset` 与预期下一 offset 完全一致再继续。确认等待上限 15 秒；扩展整体任务上限 5 分钟，执行节点向对端进行较慢串口搬运发生在浏览器下载完成之后。
 
+`download.begin.total_bytes` 可为已知长度或 null；已知时不得接收超过该长度的数据，结束时实际字节数必须同时匹配该长度和 `download.end.total_bytes`。解压后长度未知时使用 null；HEAD 等无响应体的请求使用 0。
+
 WebSocket 本机请求不经过串口；本地 API token 与扩展凭据不发送给另一节点。
 
 ## 非目标
@@ -71,4 +73,5 @@ HELLO/HEARTBEAT 带 `"tunnel":1` 表示支持 TCP 转发；对端缺少该字段
 - 流控：每条流每个方向 256 KiB 额度，发送前扣减、收到 ACK 后恢复。超出额度的流会被单独重置，不影响链路和其他流。
 - 优先级：OPEN/READY/ACK/RESET 走高优先级队列，先于 DATA/FIN 写出，避免大流量连接饿死流控。DATA 与 FIN 同队列，保证 FIN 在最后一块数据之后。
 - 结束：两个方向都收到/发出 FIN 后流正常关闭；某条流的本地 socket 出错只重置该流；串口断开或会话变化时，该会话的所有流立即重置，不重放数据。RESET 不会因控制队列暂满而丢弃。
+- RESET/断链通知独立于数据接收队列，即使 socket 写入阻塞或接收方向已收到 FIN，也会终止该流并释放连接。
 - 上限：每节点最多 256 条并发流；对端连接目标超时 10 秒，本机等待 READY 超时 20 秒。
