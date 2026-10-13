@@ -4,10 +4,10 @@
 [![Release](https://img.shields.io/github/v/release/kiliter/SerialBridge?include_prereleases&label=release)](https://github.com/kiliter/SerialBridge/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-通过 USB 串口连接两台电脑，让一端的本机程序把 HTTP 请求、浏览器请求和文件传输交给另一端执行。
+通过 USB 串口连接两台电脑：把本机 TCP 端口透传到对端可访问的地址，也可以把 HTTP 请求、浏览器请求和文件传输交给另一端执行。
 
 > [!WARNING]
-> 当前版本为 `0.1.0-alpha.2`，属于 Alpha 预发布。软件链路、三平台构建和真实 Chromium 扩展已通过测试；FT232RL 双机实机链路、网站登录态兼容性、托盘行为以及签名/公证分发尚未验收。详见 [交付与验证状态](SerialBridge-Delivery-Status.md)。
+> 当前版本为 `0.0.1`，属于早期预发布。软件链路（含 TCP 转发与 Xray/Mihomo VLESS loopback 联调）、三平台构建和真实 Chromium 扩展已通过测试；FT232RL 双机实机链路、网站登录态兼容性、托盘行为以及签名/公证分发尚未验收。详见 [交付与验证状态](SerialBridge-Delivery-Status.md)。
 
 ## 目录
 
@@ -15,12 +15,13 @@
 - [工作原理](#工作原理)
 - [安装](#安装)
 - [快速开始](#快速开始)
+- [TCP 转发](#tcp-转发)
 - [使用示例](#使用示例)
 - [配置](#配置)
 - [从源码构建](#从源码构建)
 - [测试](#测试)
 - [项目结构](#项目结构)
-- [安全模型与 Alpha 限制](#安全模型与-alpha-限制)
+- [安全模型与已知限制](#安全模型与已知限制)
 - [文档](#文档)
 - [许可证](#许可证)
 
@@ -28,9 +29,10 @@
 
 - **对等节点**：两端运行同一个 Core，没有固定的 Host/Client 或 Mac/Win 角色，任一端都可发起请求。
 - **本机 HTTP API**：只监听 `127.0.0.1`（默认端口 `9527`），使用 Bearer Token 鉴权。
+- **TCP 转发**：本机监听端口，对端连接目标地址，字节原样透传，可承载 VLESS（Xray/Mihomo）、TLS、SSH 等任意 TCP 协议。
 - **远端执行**：`http.fetch` 由对端通过 `reqwest` 发起普通 HTTP 请求；`browser.fetch` 由对端已配对的浏览器扩展执行。
 - **文件传输**：异步下载任务、拉取对端共享目录文件、推送本地文件，传输完成后校验 SHA-256。
-- **桌面客户端**：Tauri 2 应用，内嵌 Core，提供总览、日志、传输、设置四个页面和系统托盘。
+- **桌面客户端**：Tauri 2 应用，内嵌 Core，提供总览、日志、文件传输、TCP 转发、设置五个页面和系统托盘。
 - **Headless 模式**：`serialbridge` 命令行程序，适合无界面环境。
 - **默认拒绝**：来源白名单默认为空，请求方法默认只允许 `GET` / `HEAD`，重定向一律拒绝。
 
@@ -100,6 +102,41 @@ serialbridge token     # 显示本机 API Token
 
 扩展会在浏览器规则允许的范围内使用当前登录状态，但不注入页面脚本、不导出 Cookie、不执行任意 JS，扩展离线时也不会自动回退到普通 HTTP。
 
+## TCP 转发
+
+SerialBridge 只负责把 TCP 字节搬过串口，不解析应用协议。下面以 VLESS 为例：B 机部署 Xray 服务端，A 机用 Mihomo 作客户端。
+
+```text
+应用 → Mihomo（A） → 127.0.0.1:10443 → SerialBridge A ══ 串口 ══ SerialBridge B → 127.0.0.1:443 → Xray（B） → 目标网站
+```
+
+1. 在 B 机正常部署 Xray，例如 VLESS inbound 监听 `127.0.0.1:443`。B 机的 SerialBridge 不需要额外配置。
+2. 在 A 机 SerialBridge 的「TCP 转发」页添加规则，或写入配置文件：
+
+```toml
+[[forwards]]
+listen = "127.0.0.1:10443"   # A 机本地监听地址
+target = "127.0.0.1:443"     # B 机视角下的目标地址
+```
+
+3. Mihomo 中把节点地址指向 A 机的本地监听端口，其余参数与 Xray 服务端保持一致：
+
+```yaml
+proxies:
+  - name: serial-xray
+    type: vless
+    server: 127.0.0.1
+    port: 10443
+    uuid: <Xray 中配置的 UUID>
+    network: tcp
+    # tls / reality / flow 与服务端一致
+```
+
+规则可以有多条，例如再加一条 `127.0.0.1:2222 → 127.0.0.1:22` 用来转发 SSH。每条连接独立流控；串口断开时所有转发连接会被关闭，由客户端自行重连。吞吐受串口波特率限制（115200 约 11 KB/s，3 Mbaud 理论约 300 KB/s）。
+
+> [!NOTE]
+> `target` 由 A 端指定，B 端会连接任何 A 要求的地址。监听地址建议保持 `127.0.0.1`；若监听其他地址，能访问该端口的任何人都可以使用隧道。
+
 ## 使用示例
 
 以下命令均在发起节点执行。`target` 为 `peer` 表示由对端执行，为 `local` 表示在本机执行。
@@ -159,6 +196,7 @@ curl -X PUT http://127.0.0.1:9527/v1/files/push/report.zip \
 | `max_file_bytes` | 100 MiB | 单文件上限，最大 10 GiB |
 | `max_spool_bytes` | 1 GiB | 下载/暂存目录配额 |
 | `auto_reconnect` | `true` | 串口断开后自动重连 |
+| `forwards` | `[]` | TCP 转发规则，`listen` 为本机 `ip:port`，`target` 为对端视角的 `host:port` |
 | `download_dir` / `shared_dir` | `downloads` / `shared` | 下载目录 / 共享目录 |
 
 大部分配置可在「设置」页或通过 `PUT /v1/settings` 修改；目录路径与凭据不能通过 API 修改。
@@ -218,14 +256,14 @@ python tests/e2e.py --extension    # 额外加载真实 MV3 扩展，需允许�
 python tests/test_packaging.py
 ```
 
-CI（[`.github/workflows/check.yml`](.github/workflows/check.yml)）在 Windows、macOS、Linux 上运行以上检查，构建安装包并启动原生桌面进程；推送到 `main` 后自动发布 Alpha 预发布版本。测试证据保存在 [docs/verification](docs/verification)。
+CI（[`.github/workflows/check.yml`](.github/workflows/check.yml)）在 Windows、macOS、Linux 上运行以上检查，构建安装包并启动原生桌面进程；推送到 `main` 后自动发布预发布版本（tag 形如 `v0.0.1-<sha7>`）。测试证据保存在 [docs/verification](docs/verification)。
 
 ## 项目结构
 
 ```text
 .
 ├── crates/
-│   ├── core/              # Rust 节点库与 serialbridge CLI（协议、传输、API、文件、扩展）
+│   ├── core/              # Rust 节点库与 serialbridge CLI（协议、传输、API、文件、扩展、TCP 转发）
 │   └── desktop/           # Tauri 2 桌面入口，内嵌 Core
 ├── ui/                    # TypeScript Web 控制台（src → dist）
 ├── browser-extension/     # Chromium MV3 扩展（src/public → dist）
@@ -235,12 +273,13 @@ CI（[`.github/workflows/check.yml`](.github/workflows/check.yml)）在 Windows�
 └── docs/                  # API、协议、发布、设计与验证记录
 ```
 
-## 安全模型与 Alpha 限制
+## 安全模型与已知限制
 
 - API 只监听 loopback，API Token 与扩展凭据相互独立。
 - CRC32 和 SHA-256 只保证完整性，不提供身份认证或加密。USB 物理对端被视为受信任节点，请仅在获得授权的设备与网络环境中使用。
 - 只支持一个串口对端、一个已配对扩展和一个活动扩展连接。
-- 不提供通用 TCP/SOCKS 代理、远程 shell、脚本执行、任意路径读取或 Cookie 导出。
+- TCP 转发只做透传，链路本身不加密；需要保密时请在应用层使用 TLS/REALITY 等。
+- 不提供 SOCKS/HTTP 代理入口、远程 shell、脚本执行、任意路径读取或 Cookie 导出。
 - 文件传输没有滑动窗口、断点续传、HTTP Range 或串口加密，不适合高速传输大文件。
 - 任务、日志保存在内存中，重启后不恢复；已完成的下载文件会保留在磁盘上。
 - 单节点最多 2 个主传输任务、2 个暂存上传、64 个等待中的对端 RPC、8 个等待中的浏览器任务，资源繁忙时直接返回 `BUSY`。
@@ -251,7 +290,7 @@ CI（[`.github/workflows/check.yml`](.github/workflows/check.yml)）在 Windows�
 | 文档 | 内容 |
 |---|---|
 | [docs/API.md](docs/API.md) | HTTP API、参数限制、权限边界与错误码 |
-| [docs/PROTOCOL.md](docs/PROTOCOL.md) | 串口帧格式与文件传输协议 |
+| [docs/PROTOCOL.md](docs/PROTOCOL.md) | 串口帧格式、文件传输与 TCP 流协议 |
 | [docs/RELEASE.md](docs/RELEASE.md) | 发布制品与安装说明 |
 | [SerialBridge-Delivery-Status.md](SerialBridge-Delivery-Status.md) | 当前版本交付与验证状态 |
 | [docs/verification/REVIEW.md](docs/verification/REVIEW.md) | 代码 review 记录 |

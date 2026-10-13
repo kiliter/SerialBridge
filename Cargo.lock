@@ -3323,7 +3323,7 @@ dependencies = [
 
 [[package]]
 name = "serialbridge-core"
-version = "0.1.0-alpha.2"
+version = "0.0.1"
 dependencies = [
  "anyhow",
  "axum",
@@ -3352,7 +3352,7 @@ dependencies = [
 
 [[package]]
 name = "serialbridge-desktop"
-version = "0.1.0-alpha.2"
+version = "0.0.1"
 dependencies = [
  "bytes",
  "reqwest 0.12.28",

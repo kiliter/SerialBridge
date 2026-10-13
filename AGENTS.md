@@ -10,11 +10,11 @@
 
 ## 项目概览
 
-SerialBridge 通过 USB 串口连接两台对等节点，把本机 loopback HTTP 请求转发给对端，由对端用 `reqwest` 或已配对的 Chromium 扩展执行，并支持文件下载、拉取和推送。当前版本 `0.1.0-alpha.2`。
+SerialBridge 通过 USB 串口连接两台对等节点，把本机 loopback HTTP 请求转发给对端，由对端用 `reqwest` 或已配对的 Chromium 扩展执行，并支持文件下载、拉取和推送。另有 TCP 转发：A 端监听本地端口，B 端连接 A 指定的目标地址，字节原样透传（典型用法是承载 Xray/Mihomo 的 VLESS）。当前版本 `0.0.1`。
 
 | 目录 | 内容 |
 |---|---|
-| `crates/core` | Rust 库 `serialbridge_core` 与 CLI `serialbridge`：`protocol`（SBR1 帧）、`transport`（串口/开发用 TCP）、`node`（会话与 RPC）、`api`（Axum HTTP）、`transfer`（文件任务）、`http_executor`、`extension`（扩展 WebSocket）、`config`、`error` |
+| `crates/core` | Rust 库 `serialbridge_core` 与 CLI `serialbridge`：`protocol`（SBR1 帧）、`transport`（串口/开发用 TCP）、`node`（会话与 RPC）、`api`（Axum HTTP）、`transfer`（文件任务）、`http_executor`、`extension`（扩展 WebSocket）、`tunnel`（TCP 转发与流控）、`config`、`error` |
 | `crates/core/tests` | 集成测试，共享工具在 `support/mod.rs` |
 | `crates/desktop` | Tauri 2 桌面壳，内嵌 Core，托盘与窗口行为 |
 | `ui/src` → `ui/dist` | TypeScript Web 控制台（总览、日志、传输、设置） |
@@ -32,7 +32,7 @@ cargo fmt --all -- --check
 cargo clippy -p serialbridge-core --all-targets --locked -- -D warnings
 cargo test -p serialbridge-core --locked
 cargo check -p serialbridge-desktop --locked   # 需要平台桌面依赖
-python tests/e2e.py           # 两个真实 headless 进程（loopback TCP）
+python tests/e2e.py           # 两个真实 headless 进程（loopback TCP），含 TCP 转发流程
 python tests/e2e.py --browser # 需 requirements-test.txt 与 Playwright Chromium
 python tests/test_packaging.py
 python scripts/check-source.py  # 仅静态检查，不是编译或运行测试
@@ -57,18 +57,27 @@ python scripts/check-source.py  # 仅静态检查，不是编译或运行测试
 - 默认拒绝：来源白名单为空、方法只允许 GET/HEAD、精确匹配协议+主机+端口、重定向一律拒绝、禁止敏感请求头。
 - 扩展不注入页面脚本、不导出 Cookie、不执行任意 JS；扩展离线时不自动回退到普通 HTTP。
 - 链路错误不自动重放有副作用的请求。
-- 文件传输保持有界单块请求/应答；完成前必须校验长度和 SHA-256，只发布完整文件；移除记录不删除原共享文件。
+- 文件传输保持有界单块请求/应答（TCP 转发的每流额度窗口是另一回事，不适用于文件传输）；完成前必须校验长度和 SHA-256，只发布完整文件；移除记录不删除原共享文件。
 - 断线或取消不能遗留活动任务、泄漏传输容量或可访问的半成品文件。
-- 不添加数据库、断点续传、滑动窗口、远程 shell、脚本执行、通用代理或新的权限模型，除非用户明确要求。
+- TCP 转发只透传字节，不解析或改写应用协议（VLESS、TLS 等交给 Xray/Mihomo）。目标地址由 A 端配置决定，不要擅自在 B 端加白名单、目标限制等用户未要求的约束。
+- 流控：每条流独立额度（`tunnel::WINDOW`），控制帧走 `PeerLink.ctl` 高优先级队列；串口读循环里不得阻塞等待。
+- 不添加数据库、断点续传、文件传输滑动窗口、远程 shell、脚本执行、SOCKS/HTTP 代理入口或新的权限模型，除非用户明确要求。
+- 不要自行加入用户没有提出的限制；拿不准时先问。
 
 ## 验证边界
 
 - 区分本地单元/集成测试、真实 headless 双进程、浏览器/扩展测试、CI 原生启动和实机验收，报告时说明实际执行了哪些。
 - `tests/ui_smoke.py`、`tests/ui_offline_dom.py` 和 `?demo=1` 使用测试替身或模拟数据，不能作为真实 Core 联调证据。
+- TCP 转发的 Xray/Mihomo 联调可使用 `/Volumes/Extend/runtime` 下的二进制，仅限 loopback，结束后清理进程与临时目录。
 - `--dev-tcp-*` 只用于无硬件测试，不能替代 FT232RL 实机串口验收；网站登录兼容性、托盘行为、签名与公证也需对应环境验证。
 - 不要把未执行的命令写成已通过的结果。
+
+## 本机环境
+
+- 依赖、缓存和工具统一放在 `/Volumes/Extend/runtime`：`CARGO_HOME=/Volumes/Extend/runtime/cargo-home`、`npm ci --cache /Volumes/Extend/runtime/npm-cache`、`PLAYWRIGHT_BROWSERS_PATH=/Volumes/Extend/runtime/ms-playwright`；Xray、Mihomo 位于 `runtime/xray`、`runtime/mihomo`。
+- Rust 工具链使用 `~/.cargo/bin` 下已安装的 stable（rustup）。
 
 ## 安全
 
 - 不要在代码、日志、文档或回复中输出真实 API Token、扩展凭据或本机 `config.toml`（已在 `.gitignore` 中忽略）。
-- 推送到 `main` 会触发 CI 并自动发布 Alpha 预发布版本；推送、发布或改动 `.github/workflows/` 前需获得用户明确授权。
+- 推送到 `main` 会触发 CI 并自动发布预发布版本（tag 为 `v{版本}-{sha7}`）；推送、发布或改动 `.github/workflows/` 前需获得用户明确授权。

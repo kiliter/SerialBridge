@@ -73,12 +73,12 @@ export async function pushFile(file, onProgress) {
 }
 // This adapter is opt-in only (?demo=1). It is never selected on connection failure.
 let demoOnline = true;
-const demoSettings = { node_name: 'Node A', serial_port: '/dev/cu.usbserial-DEMO-A', baud_rate: 921600, http_port: 9527, allowed_origins: ['https://example.com'], allowed_methods: ['GET', 'HEAD'], auto_reconnect: true, download_dir: '~/SerialBridge/downloads', shared_dir: '~/SerialBridge/shared', max_file_bytes: 104857600, max_spool_bytes: 1073741824, chunk_bytes: 8192 };
+const demoSettings = { node_name: 'Node A', serial_port: '/dev/cu.usbserial-DEMO-A', baud_rate: 921600, http_port: 9527, allowed_origins: ['https://example.com'], allowed_methods: ['GET', 'HEAD'], auto_reconnect: true, download_dir: '~/SerialBridge/downloads', shared_dir: '~/SerialBridge/shared', max_file_bytes: 104857600, max_spool_bytes: 1073741824, chunk_bytes: 8192, forwards: [{ listen: '127.0.0.1:10443', target: '127.0.0.1:443' }] };
 const demoTransfers = [{ id: 'demo-complete', filename: 'interface-report.json', direction: 'receive', target: 'peer', status: 'completed', stage: 'completed', received_bytes: 48128, total_bytes: 48128, sha256: 'demo-not-a-real-checksum', created_at: Date.now() - 240000 }, { id: 'demo-progress', filename: 'reference-package.zip', direction: 'receive', target: 'peer', status: 'running', stage: 'serial_transfer', received_bytes: 786432, total_bytes: 2097152, created_at: Date.now() - 90000 }];
 async function demoApi(method, path, body) {
     const p = body;
     if (path === '/v1/health')
-        return { version: '0.1.0-alpha.1', node: { name: demoSettings.node_name, os: 'macos' }, http: { port: 9527 }, serial: { port: demoSettings.serial_port, baud_rate: demoSettings.baud_rate }, peer: { connected: demoOnline, name: 'Node B', os: 'windows', browser: demoOnline }, browser: { connected: true, origin: 'chrome-extension://demo' }, pending_requests: 0 };
+        return { version: '0.0.1', node: { name: demoSettings.node_name, os: 'macos' }, http: { port: 9527 }, serial: { port: demoSettings.serial_port, baud_rate: demoSettings.baud_rate }, peer: { connected: demoOnline, name: 'Node B', os: 'windows', browser: demoOnline }, browser: { connected: true, origin: 'chrome-extension://demo' }, pending_requests: 0, tunnel: { forwards: demoSettings.forwards.length, active_streams: demoOnline ? 1 : 0 } };
     if (path === '/v1/settings') {
         if (method === 'PUT') {
             Object.assign(demoSettings, p);
@@ -86,6 +86,8 @@ async function demoApi(method, path, body) {
         }
         return demoSettings;
     }
+    if (path === '/v1/tunnels')
+        return { forwards: demoSettings.forwards.map(f => ({ ...f, listening: true, error: null })), streams: demoOnline ? [{ id: 'demo-stream', direction: 'outbound', listen: demoSettings.forwards[0]?.listen, target: demoSettings.forwards[0]?.target ?? '', client: '127.0.0.1:52011', started_at: Date.now() - 60000, bytes_sent: 18432, bytes_received: 262144 }] : [], total_streams: 3 };
     if (path === '/v1/ports')
         return { ports: [{ name: '/dev/cu.usbserial-DEMO-A', product: 'FT232RL · 演示串口' }] };
     if (path === '/v1/logs')

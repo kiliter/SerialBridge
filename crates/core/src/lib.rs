@@ -7,6 +7,7 @@ pub mod node;
 pub mod protocol;
 pub mod transfer;
 pub mod transport;
+pub mod tunnel;
 use error::Result;
 use node::Node;
 use std::{path::PathBuf, sync::Arc, time::Duration};
@@ -29,6 +30,7 @@ pub async fn start(path: PathBuf, transport: transport::TransportMode) -> Result
         }
     });
     tokio::spawn(transport::run(node.clone(), transport));
+    tokio::spawn(tunnel::supervise(node.clone()));
     let clean = node.clone();
     tokio::spawn(async move {
         loop {

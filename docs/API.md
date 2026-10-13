@@ -8,6 +8,7 @@
 | GET | /v1/ports | 系统串口枚举 |
 | GET | /v1/logs | 最近至多 2000 条事件，按时间正序 |
 | GET / PUT | /v1/settings | 脱敏配置 / 保存允许修改的设置 |
+| GET | /v1/tunnels | TCP 转发规则的监听状态、活动连接和累计连接数 |
 | POST | /v1/serial/reconnect | 关闭现有串口会话后重新连接；在途请求失败 |
 | POST / DELETE | /v1/extension/pairing | 生成短期配对码 / 撤销配对 |
 | POST | /v1/rpc | system.ping、http.fetch、browser.fetch |
@@ -47,9 +48,32 @@
 
 ## 设置
 
-可通过 PUT 修改：`node_name`、`serial_port`、`baud_rate`、`allowed_origins`、`allowed_methods`、`auto_reconnect`、`http_port`、`chunk_bytes`、`max_file_bytes`、`max_spool_bytes`。
+可通过 PUT 修改：`node_name`、`serial_port`、`baud_rate`、`allowed_origins`、`allowed_methods`、`auto_reconnect`、`http_port`、`chunk_bytes`、`max_file_bytes`、`max_spool_bytes`、`forwards`。
 
 HTTP 端口改变返回 `restart_required: true`。实际监听端口在 `/v1/health` 中保持真实值直到重启，设置文件保存新值。目录路径与凭据不通过该接口修改。
+
+## TCP 转发
+
+`forwards` 是规则数组，最多 32 条：
+
+```json
+{"forwards":[{"listen":"127.0.0.1:10443","target":"127.0.0.1:443"}]}
+```
+
+- `listen`：本机监听的 `ip:port`，不可重复。监听非 loopback 地址时，能访问该端口的任何人都能使用隧道，日志会给出警告。
+- `target`：对端视角下的 `host:port` 或 `[IPv6]:port`，由对端解析并连接。
+
+保存后监听立即重建，已建立的连接不受影响。客户端连上 `listen` 后，本机通过串口请求对端连接 `target`，然后双向原样透传字节（支持半关闭）。对端连接失败、串口断开或对端节点不支持转发时，本机直接关闭客户端连接。
+
+`GET /v1/tunnels`：
+
+```json
+{"forwards":[{"listen":"127.0.0.1:10443","target":"127.0.0.1:443","listening":true,"error":null}],
+ "streams":[{"id":"uuid","direction":"outbound","listen":"127.0.0.1:10443","target":"127.0.0.1:443","client":"127.0.0.1:52011","started_at":1760000000000,"bytes_sent":1024,"bytes_received":4096}],
+ "total_streams":3}
+```
+
+`direction` 为 `outbound`（本机接受、对端连接目标）或 `inbound`（对端发起、本机连接目标）。
 
 ## 权限边界
 
@@ -63,4 +87,4 @@ HTTP 端口改变返回 `restart_required: true`。实际监听端口在 `/v1/he
 
 格式：`{"error":{"code":"...","message":"..."}}`。并非所有扩展内部错误都有单独 HTTP 状态；扩展失败会包装为 `BROWSER_ERROR`。
 
-无通用 TCP 代理、SOCKS、任意命令执行、任意磁盘路径读取或 Cookie 导出接口。
+TCP 转发只做字节透传，不解析应用协议、不提供 SOCKS/HTTP 代理入口。无任意命令执行、任意磁盘路径读取或 Cookie 导出接口。

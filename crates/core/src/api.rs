@@ -26,6 +26,7 @@ pub fn router(node: Arc<Node>) -> Router {
         .route("/v1/settings", get(settings).put(save_settings))
         .route("/v1/rpc", post(rpc))
         .route("/v1/serial/reconnect", post(reconnect))
+        .route("/v1/tunnels", get(tunnels))
         .route("/v1/extension/pairing", post(pair).delete(revoke))
         .route("/v1/downloads", get(transfers).post(download))
         .route("/v1/downloads/{id}", get(transfer).delete(cancel))
@@ -129,6 +130,9 @@ async fn rpc(State(n): State<Arc<Node>>, Json(r): Json<RpcRequest>) -> Result<Js
             Err(e)
         }
     }
+}
+async fn tunnels(State(n): State<Arc<Node>>) -> Json<Value> {
+    Json(n.tunnel_snapshot())
 }
 async fn reconnect(State(n): State<Arc<Node>>) -> Json<Value> {
     n.reconnect.notify_one();

@@ -20,6 +20,8 @@ pub struct Config {
     pub max_spool_bytes: u64,
     pub chunk_bytes: usize,
     pub auto_reconnect: bool,
+    /// TCP forwards: listen locally, the peer connects to `target`.
+    pub forwards: Vec<crate::tunnel::Forward>,
 }
 impl Default for Config {
     fn default() -> Self {
@@ -41,6 +43,7 @@ impl Default for Config {
             max_spool_bytes: 1024 * 1024 * 1024,
             chunk_bytes: 8192,
             auto_reconnect: true,
+            forwards: vec![],
         }
     }
 }
@@ -85,6 +88,7 @@ impl Config {
                 return Err(BridgeError::invalid("Invalid HTTP method"));
             }
         }
+        crate::tunnel::validate_forwards(&self.forwards)?;
         Ok(())
     }
     pub fn public(&self) -> serde_json::Value {

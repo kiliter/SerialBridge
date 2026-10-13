@@ -82,9 +82,11 @@ where
 {
     let epoch = Uuid::new_v4();
     let (tx, mut rx) = mpsc::channel::<Packet>(32);
+    let (ctl, mut ctl_rx) = mpsc::channel::<Packet>(256);
     *node.peer.lock().unwrap() = Some(PeerLink {
         epoch,
         tx: tx.clone(),
+        ctl: ctl.clone(),
         ready: false,
         remote: Value::Null,
     });
@@ -122,7 +124,13 @@ where
     // The future remains owned by this session and is dropped on every exit.
     let writer = async move {
         let mut sink = sink;
-        while let Some(packet) = rx.recv().await {
+        loop {
+            // Stream control/acks first so bulk data cannot starve flow control.
+            let packet = tokio::select! {
+                biased;
+                Some(p) = ctl_rx.recv() => p,
+                p = rx.recv() => match p { Some(p) => p, None => break },
+            };
             tokio::time::timeout(Duration::from_secs(20), sink.send(packet))
                 .await
                 .map_err(|_| BridgeError::new("TIMEOUT", "Serial write timeout"))??;
@@ -176,6 +184,11 @@ where
                             let reply=if serde_json::to_vec(&reply.meta).map(|v|v.len()+reply.data.len()>protocol::MAX_PAYLOAD).unwrap_or(true){Packet::new(protocol::RESPONSE,packet.id,json!({"error":BridgeError::new("RESPONSE_TOO_LARGE","Response exceeds serial frame limit")}),Bytes::new())}else{reply};
                             if !cancel.is_cancelled(){let _=out.send(reply).await;}let _=done.send(packet.id).await;
                         });
+                    },
+                    protocol::STREAM_OPEN..=protocol::STREAM_RESET=>{
+                        let ready=node.peer.lock().unwrap().as_ref().is_some_and(|p|p.ready);
+                        if !ready{return Err(BridgeError::invalid("Stream frame received before handshake"))}
+                        node.tunnel_packet(epoch,&ctl,packet)?;
                     },
                     _=>return Err(BridgeError::invalid("Invalid packet kind")),
                 }

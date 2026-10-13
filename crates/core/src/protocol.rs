@@ -12,6 +12,13 @@ pub const REQUEST: u8 = 2;
 pub const RESPONSE: u8 = 3;
 pub const HEARTBEAT: u8 = 4;
 pub const CANCEL: u8 = 5;
+/// TCP forwarding frames; the id field is the stream id.
+pub const STREAM_OPEN: u8 = 6;
+pub const STREAM_READY: u8 = 7;
+pub const STREAM_DATA: u8 = 8;
+pub const STREAM_ACK: u8 = 9;
+pub const STREAM_FIN: u8 = 10;
+pub const STREAM_RESET: u8 = 11;
 #[derive(Debug, Clone)]
 pub struct Packet {
     pub kind: u8,
@@ -77,7 +84,7 @@ impl Decoder for FrameCodec {
         if src.len() < 32 {
             return Ok(None);
         }
-        if src[4] != 1 || src[6] != 0 || src[7] != 0 || !(1..=5).contains(&src[5]) {
+        if src[4] != 1 || src[6] != 0 || src[7] != 0 || !(1..=11).contains(&src[5]) {
             return Err(invalid("Unsupported frame version/header"));
         }
         let len = u32::from_be_bytes(src[8..12].try_into().unwrap()) as usize;

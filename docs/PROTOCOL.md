@@ -19,7 +19,7 @@
 
 总帧长 `36 + payload_length`。CRC32 计算范围为 version 字节至 data 末尾，包含所有头字段（除 magic）和 JSON。最大 payload 128 KiB。错误长度在等待/分配其完整内容前拒绝。magic 前的噪音可以扫描重同步；CRC/版本错误终止当前链路并重新握手，**不重放请求**。
 
-Kind：1 HELLO、2 REQUEST、3 RESPONSE、4 HEARTBEAT、5 CANCEL。
+Kind：1 HELLO、2 REQUEST、3 RESPONSE、4 HEARTBEAT、5 CANCEL、6–11 TCP 流（见下文）。
 
 HELLO/HEARTBEAT 使用本次链路 session UUID，携带协议版本、进程 instance UUID、节点名、OS、本地扩展在线状态。正常心跳 5 秒，25 秒未收到对端帧会断开。远端 session 改变会令在途请求失败。
 
@@ -54,3 +54,21 @@ WebSocket 本机请求不经过串口；本地 API token 与扩展凭据不发�
 ## 非目标
 
 该协议没有提供加密、peer 密钥认证、抗主动篡改、自动重传、断点续传、多节点路由或虚拟网卡。CRC/SHA 不替代任何安全隔离或保密要求。
+
+## TCP 流
+
+HELLO/HEARTBEAT 带 `"tunnel":1` 表示支持 TCP 转发；对端缺少该字段时，本机拒绝打开流。帧的 ID 字段为流 UUID。
+
+| Kind | 名称 | 内容 |
+|---:|---|---|
+| 6 | STREAM_OPEN | metadata `{"target":"host:port"}`，请求对端连接目标 |
+| 7 | STREAM_READY | 对端已连上目标 |
+| 8 | STREAM_DATA | 原始 data 字段为 TCP 字节，单帧最多 16 KiB |
+| 9 | STREAM_ACK | metadata `{"bytes":n}`，接收方写入本地 socket 后归还额度 |
+| 10 | STREAM_FIN | 发送方向已结束（半关闭） |
+| 11 | STREAM_RESET | metadata `{"error":{...}}`，立即终止该流 |
+
+- 流控：每条流每个方向 256 KiB 额度，发送前扣减、收到 ACK 后恢复。超出额度的流会被单独重置，不影响链路和其他流。
+- 优先级：OPEN/READY/ACK/RESET 走高优先级队列，先于 DATA/FIN 写出，避免大流量连接饿死流控。DATA 与 FIN 同队列，保证 FIN 在最后一块数据之后。
+- 结束：两个方向都收到/发出 FIN 后流正常关闭；某条流的本地 socket 出错只重置该流；串口断开或会话变化时，该会话的所有流立即重置，不重放数据。RESET 不会因控制队列暂满而丢弃。
+- 上限：每节点最多 256 条并发流；对端连接目标超时 10 秒，本机等待 READY 超时 20 秒。

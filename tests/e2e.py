@@ -210,6 +210,56 @@ def core_flows(a, b, origin):
     passed("peer process exit reports offline and restart re-establishes RPC")
 
 
+def tunnel_flows(a, b, origin):
+    """Real TCP forwarding: client -> A listener -> link -> B -> local fixture."""
+    echo = socket.create_server(("127.0.0.1", 0))
+    echo_port = echo.getsockname()[1]
+
+    def serve_echo():
+        while True:
+            try:
+                conn, _ = echo.accept()
+            except OSError:
+                return
+            def relay(conn=conn):
+                with conn:
+                    while chunk := conn.recv(65536):
+                        conn.sendall(chunk)
+            threading.Thread(target=relay, daemon=True).start()
+    threading.Thread(target=serve_echo, daemon=True).start()
+    listen = f"127.0.0.1:{free_port()}"
+    try:
+        a.api("PUT", "/v1/settings", {"forwards":[{"listen":listen,"target":f"127.0.0.1:{echo_port}"}]})
+        wait_for(lambda: a.api("GET", "/v1/tunnels")["forwards"][0]["listening"])
+        host, port = listen.split(":")
+        with socket.create_connection((host, int(port)), timeout=15) as client:
+            sender = threading.Thread(target=lambda: (client.sendall(DATA), client.shutdown(socket.SHUT_WR)))
+            sender.start()
+            back = bytearray()
+            while chunk := client.recv(65536):
+                back += chunk
+            sender.join()
+        assert bytes(back) == DATA, len(back)
+        passed("TCP forward relays bytes unchanged through the peer, including half-close")
+        wait_for(lambda: not a.api("GET", "/v1/tunnels")["streams"] and not b.api("GET", "/v1/tunnels")["streams"])
+        assert a.api("GET", "/v1/tunnels")["total_streams"] >= 1
+        passed("closed forwarded connection releases stream state on both nodes")
+        # HTTP through the tunnel to the real fixture, as an application protocol would.
+        fixture_port = int(origin.rsplit(":", 1)[1])
+        a.api("PUT", "/v1/settings", {"forwards":[{"listen":listen,"target":f"127.0.0.1:{fixture_port}"}]})
+        def fetched():
+            try:
+                with OPENER.open(f"http://{listen}/api", timeout=5) as r:
+                    return r.read() == b"fixture-api"
+            except (OSError, URLError):
+                return False
+        wait_for(fetched)
+        passed("HTTP client reaches peer-side service through the forward after rules change")
+    finally:
+        a.api("PUT", "/v1/settings", {"forwards":[]})
+        echo.close()
+
+
 def browser_flows(a, b, origin, extension):
     from playwright.sync_api import sync_playwright, expect
     ui = ThreadingHTTPServer(("127.0.0.1", 4173), partial(QuietUI, directory=str(ROOT / "ui/dist")))
@@ -312,6 +362,7 @@ def main():
                 nodes.append(NodeProcess(Path(root), "Node B", origin, link_port, False))
                 a, b = nodes
                 core_flows(a, b, origin)
+                tunnel_flows(a, b, origin)
                 if options.browser or options.extension:
                     browser_flows(a, b, origin, options.extension)
             finally:

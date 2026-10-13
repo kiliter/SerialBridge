@@ -58,6 +58,8 @@ pub struct LogEvent {
 pub struct PeerLink {
     pub epoch: Uuid,
     pub tx: mpsc::Sender<Packet>,
+    /// High-priority queue (stream control/acks), drained before `tx`.
+    pub ctl: mpsc::Sender<Packet>,
     pub ready: bool,
     pub remote: Value,
 }
@@ -97,6 +99,7 @@ pub struct Node {
     pub pairing: Mutex<Option<PairCode>>,
     pub logs: Mutex<VecDeque<LogEvent>>,
     pub transfers: Transfers,
+    pub tunnels: crate::tunnel::Tunnels,
     pub shutdown: CancellationToken,
     pub reconnect: tokio::sync::Notify,
     pub client: reqwest::Client,
@@ -121,6 +124,7 @@ impl Node {
             pairing: Mutex::new(None),
             logs: Mutex::new(VecDeque::new()),
             transfers: Transfers::default(),
+            tunnels: Default::default(),
             shutdown: CancellationToken::new(),
             reconnect: tokio::sync::Notify::new(),
             client,
@@ -150,7 +154,7 @@ impl Node {
     }
     pub fn announcement(&self) -> Value {
         let cfg = self.cfg();
-        json!({"protocol":1,"instance":self.instance,"name":cfg.node_name,"os":std::env::consts::OS,"browser":self.browser.lock().unwrap().is_some()})
+        json!({"protocol":1,"instance":self.instance,"name":cfg.node_name,"os":std::env::consts::OS,"browser":self.browser.lock().unwrap().is_some(),"tunnel":1})
     }
     pub fn snapshot(&self) -> Value {
         let cfg = self.cfg();
@@ -162,7 +166,7 @@ impl Node {
             _ => json!({"connected":false,"browser":false}),
         };
         let browser = self.browser.lock().unwrap().clone();
-        json!({"version":env!("CARGO_PKG_VERSION"),"node":{"name":cfg.node_name,"os":std::env::consts::OS,"instance":self.instance},"http":{"listening":true,"port":self.listen_port},"serial":{"port":cfg.serial_port,"baud_rate":cfg.baud_rate},"peer":peer,"browser":{"connected":browser.is_some(),"origin":browser.map(|b|b.origin)},"pending_requests":self.pending.lock().unwrap().len()})
+        json!({"version":env!("CARGO_PKG_VERSION"),"node":{"name":cfg.node_name,"os":std::env::consts::OS,"instance":self.instance},"http":{"listening":true,"port":self.listen_port},"serial":{"port":cfg.serial_port,"baud_rate":cfg.baud_rate},"peer":peer,"browser":{"connected":browser.is_some(),"origin":browser.map(|b|b.origin)},"pending_requests":self.pending.lock().unwrap().len(),"tunnel":{"forwards":cfg.forwards.len(),"active_streams":self.tunnels.streams.lock().unwrap().len()}})
     }
     pub fn update_settings(&self, patch: Value) -> Result<Value> {
         let obj = patch
@@ -179,6 +183,7 @@ impl Node {
             "chunk_bytes",
             "max_file_bytes",
             "max_spool_bytes",
+            "forwards",
         ];
         if obj.keys().any(|k| !allowed.contains(&k.as_str())) {
             return Err(BridgeError::invalid(
@@ -194,12 +199,16 @@ impl Node {
         next.validate()?;
         let restart = next.http_port != self.listen_port;
         let reconnect = next.serial_port != lock.serial_port || next.baud_rate != lock.baud_rate;
+        let forwards_changed = next.forwards != lock.forwards;
         next.save(&self.config_path)?;
         // A listening socket cannot change address in place; keep runtime port truthful until restart.
         *lock = next.clone();
         drop(lock);
         if reconnect {
             self.reconnect.notify_one();
+        }
+        if forwards_changed {
+            self.tunnels.changed.notify_one();
         }
         self.log("info", "settings", "Settings saved", "");
         Ok(json!({"settings":next.public(),"restart_required":restart}))
@@ -287,6 +296,7 @@ impl Node {
             }
         }
         self.pending.lock().unwrap().retain(|_, p| p.epoch != epoch);
+        self.tunnels_lost(epoch);
         let jobs = self.transfers.cancel_peer(epoch);
         let node = self.clone();
         tokio::spawn(async move {
