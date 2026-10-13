@@ -20,7 +20,7 @@ SerialBridge 通过 USB 串口连接两台对等节点，把本机 loopback HTTP
 | `ui/src` → `ui/dist` | TypeScript Web 控制台（总览、日志、传输、设置） |
 | `browser-extension/src` + `public` → `dist` | Chromium MV3 扩展 |
 | `tests/` | Node 测试（`*.test.mjs`）与 Python 端到端/打包/UI 测试 |
-| `docs/` | `API.md`、`PROTOCOL.md`、`RELEASE.md`、设计稿、计划与验证证据 |
+| `docs/` | `API.md`、`PROTOCOL.md`、`RELEASE.md`、`releases/`（正式版本发布说明）、设计稿、计划与验证证据 |
 
 ## 常用命令
 
@@ -80,4 +80,4 @@ python scripts/check-source.py  # 仅静态检查，不是编译或运行测试
 ## 安全
 
 - 不要在代码、日志、文档或回复中输出真实 API Token、扩展凭据或本机 `config.toml`（已在 `.gitignore` 中忽略）。
-- 推送到 `main` 会触发 CI 并自动发布预发布版本（tag 为 `v{版本}-{sha7}`）；推送、发布或改动 `.github/workflows/` 前需获得用户明确授权。
+- 推送到 `main` 会触发 CI 并自动发布预发布版本（tag 为 `v{版本}-{sha7}`）；推送 `v{版本}` tag 会发布正式版本（tag 必须与 `package.json` 版本一致，发布说明放在 `docs/releases/{版本}.md`）；推送、发布或改动 `.github/workflows/` 前需获得用户明确授权。

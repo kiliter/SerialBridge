@@ -2,6 +2,7 @@ name: Test, build and package
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -118,9 +119,9 @@ jobs:
           retention-days: 30
 
   release:
-    name: Publish verified Alpha prerelease
+    name: Publish verified release
     needs: build
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -142,11 +143,28 @@ jobs:
           test "$(find artifacts -name '*.AppImage' | wc -l)" -ge 1
           test "$(find artifacts -name 'SerialBridge-Chrome-*.zip' | wc -l)" -eq 1
           version=$(node -p 'JSON.parse(require("fs").readFileSync("package.json","utf8")).version')
-          tag="v${version}-${GITHUB_SHA:0:7}"
           # The Linux artifact preserves deb/ and appimage/ subdirectories.
           mapfile -d '' packages < <(find artifacts -type f -print0 | sort -z)
           for package in "${packages[@]}"; do
             digest=$(sha256sum "$package" | cut -d ' ' -f 1)
             printf '%s  %s\n' "$digest" "$(basename "$package")"
           done > SHA256SUMS
-          gh release create "$tag" "${packages[@]}" SHA256SUMS --target "$GITHUB_SHA" --prerelease --title "SerialBridge ${version} (${GITHUB_SHA:0:7})" --notes-file docs/RELEASE.md
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            # Formal release: the pushed tag must match package.json exactly.
+            tag="$GITHUB_REF_NAME"
+            if [ "$tag" != "v${version}" ]; then
+              echo "::error::Tag $tag does not match package.json version v${version}"
+              exit 1
+            fi
+            notes="docs/releases/${version}.md"
+            test -f "$notes" || notes=docs/RELEASE.md
+            if gh release view "$tag" >/dev/null 2>&1; then
+              # Release created earlier (e.g. manually): refresh its assets.
+              gh release upload "$tag" "${packages[@]}" SHA256SUMS --clobber
+            else
+              gh release create "$tag" "${packages[@]}" SHA256SUMS --verify-tag --latest --title "SerialBridge ${version}" --notes-file "$notes"
+            fi
+          else
+            tag="v${version}-${GITHUB_SHA:0:7}"
+            gh release create "$tag" "${packages[@]}" SHA256SUMS --target "$GITHUB_SHA" --prerelease --title "SerialBridge ${version} (${GITHUB_SHA:0:7})" --notes-file docs/RELEASE.md
+          fi

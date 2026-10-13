@@ -1,7 +1,7 @@
 # SerialBridge
 
 [![Test, build and package](https://github.com/kiliter/SerialBridge/actions/workflows/check.yml/badge.svg)](https://github.com/kiliter/SerialBridge/actions/workflows/check.yml)
-[![Release](https://img.shields.io/github/v/release/kiliter/SerialBridge?include_prereleases&label=release)](https://github.com/kiliter/SerialBridge/releases)
+[![Release](https://img.shields.io/github/v/release/kiliter/SerialBridge?label=release)](https://github.com/kiliter/SerialBridge/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 通过 USB 串口连接两台电脑：把本机 TCP 端口透传到对端可访问的地址，也可以把 HTTP 请求、浏览器请求和文件传输交给另一端执行。
@@ -47,7 +47,7 @@
 
 ## 安装
 
-从 [GitHub Releases](https://github.com/kiliter/SerialBridge/releases) 下载对应平台的预发布制品：
+从 [GitHub Releases](https://github.com/kiliter/SerialBridge/releases) 下载对应平台的制品（标记为 Latest 的是正式版本，带 `-<sha7>` 后缀的是 `main` 分支的预发布）：
 
 | 平台 | 制品 | 说明 |
 |---|---|---|
@@ -256,7 +256,7 @@ python tests/e2e.py --extension    # 额外加载真实 MV3 扩展，需允许�
 python tests/test_packaging.py
 ```
 
-CI（[`.github/workflows/check.yml`](.github/workflows/check.yml)）在 Windows、macOS、Linux 上运行以上检查，构建安装包并启动原生桌面进程；推送到 `main` 后自动发布预发布版本（tag 形如 `v0.0.1-<sha7>`）。测试证据保存在 [docs/verification](docs/verification)。
+CI（[`.github/workflows/check.yml`](.github/workflows/check.yml)）在 Windows、macOS、Linux 上运行以上检查，构建安装包并启动原生桌面进程；推送到 `main` 后自动发布预发布版本（tag 形如 `v0.0.1-<sha7>`）；推送与 `package.json` 版本一致的 `v*` tag（如 `v0.0.1`）后自动发布正式版本并标记为 Latest，发布说明取自 `docs/releases/<版本>.md`。测试证据保存在 [docs/verification](docs/verification)。
 
 ## 项目结构
 
