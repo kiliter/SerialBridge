@@ -1,8 +1,8 @@
 {
   "manifest_version":3,
   "name":"SerialBridge Browser Executor",
-  "version":"0.0.1",
-  "version_name":"0.0.1",
+  "version":"0.0.2",
+  "version_name":"0.0.2",
   "description":"在明确授权的网站上执行 SerialBridge 请求。只连接本机服务，不读取或导出 Cookie。",
   "minimum_chrome_version":"116",
   "permissions":["storage","alarms"],

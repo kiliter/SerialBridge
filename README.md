@@ -7,7 +7,7 @@
 通过 USB 串口连接两台电脑：把本机 TCP 端口透传到对端可访问的地址，也可以把 HTTP 请求、浏览器请求和文件传输交给另一端执行。
 
 > [!WARNING]
-> 当前版本为 `0.0.1`，属于早期预发布。软件链路（含 TCP 转发与 Xray/Mihomo VLESS loopback 联调）、三平台构建和真实 Chromium 扩展已通过测试；FT232RL 双机实机链路、网站登录态兼容性、托盘行为以及签名/公证分发尚未验收。详见 [交付与验证状态](SerialBridge-Delivery-Status.md)。
+> 当前版本为 `0.0.2`，属于早期预发布。软件链路（含 TCP 转发与 Xray/Mihomo VLESS loopback 联调）、三平台构建和真实 Chromium 扩展已通过测试；FT232RL 双机实机链路、网站登录态兼容性、托盘行为以及签名/公证分发尚未验收。详见 [交付与验证状态](SerialBridge-Delivery-Status.md)。
 
 ## 目录
 
