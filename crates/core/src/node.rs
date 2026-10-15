@@ -62,6 +62,8 @@ pub struct PeerLink {
     pub ctl: mpsc::Sender<Packet>,
     pub ready: bool,
     pub remote: Value,
+    /// Link-layer state, exposed for retransmit statistics.
+    pub link: Option<Arc<Mutex<crate::link::Link>>>,
 }
 pub struct PeerPending {
     pub epoch: Uuid,
@@ -156,14 +158,15 @@ impl Node {
     }
     pub fn announcement(&self) -> Value {
         let cfg = self.cfg();
-        json!({"protocol":1,"instance":self.instance,"name":cfg.node_name,"os":std::env::consts::OS,"browser":self.browser.lock().unwrap().is_some(),"tunnel":1})
+        json!({"protocol":2,"instance":self.instance,"name":cfg.node_name,"os":std::env::consts::OS,"browser":self.browser.lock().unwrap().is_some(),"tunnel":1})
     }
     pub fn snapshot(&self) -> Value {
         let cfg = self.cfg();
         let link = self.peer.lock().unwrap().clone();
         let peer = match link {
             Some(p) if p.ready => {
-                json!({"connected":true,"name":p.remote["name"],"os":p.remote["os"],"browser":p.remote["browser"],"session":p.epoch})
+                let stats = p.link.map(|l| l.lock().unwrap().stats).unwrap_or_default();
+                json!({"connected":true,"name":p.remote["name"],"os":p.remote["os"],"browser":p.remote["browser"],"session":p.epoch,"link":{"retransmits":stats.retransmits,"damaged":stats.damaged,"naks_sent":stats.naks_sent}})
             }
             _ => json!({"connected":false,"browser":false}),
         };
@@ -478,6 +481,7 @@ mod tests {
             ctl,
             ready: true,
             remote: Value::Null,
+            link: None,
         });
         // TCP 转发等批量数据可以暂时占满写队列；RPC 应排队等待而不是立即 BUSY。
         tx.try_send(Packet::new(

@@ -162,7 +162,7 @@ def core_flows(a, b, origin):
         return node.api("POST", "/v1/rpc", {"target":"peer","method":"system.ping","params":{}})
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
         responses = list(pool.map(ping, [a, b] * 10))
-    assert all(r["result"]["protocol"] == 1 for r in responses)
+    assert all(r["result"]["protocol"] == 2 for r in responses)
     passed("twenty concurrent bidirectional RPC calls complete on one link")
     result = a.api("POST", "/v1/rpc", {"method":"http.fetch","params":{"url":origin + "/api"}})
     assert result["result"]["body"] == "fixture-api"
@@ -206,7 +206,7 @@ def core_flows(a, b, origin):
     assert error["error"]["code"] == "PEER_DISCONNECTED"
     b.start()
     wait_for(lambda: a.api("GET", "/v1/health")["peer"]["connected"])
-    assert ping(a)["result"]["protocol"] == 1
+    assert ping(a)["result"]["protocol"] == 2
     passed("peer process exit reports offline and restart re-establishes RPC")
 
 

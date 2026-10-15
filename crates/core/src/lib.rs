@@ -3,6 +3,7 @@ pub mod config;
 pub mod error;
 pub mod extension;
 pub mod http_executor;
+pub mod link;
 pub mod node;
 pub mod protocol;
 pub mod transfer;

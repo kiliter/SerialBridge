@@ -880,6 +880,7 @@ mod race_tests {
             ctl: ctl.clone(),
             ready: true,
             remote: json!({"tunnel":1}),
+            link: None,
         });
         let id = Uuid::new_v4();
         let open = Packet::new(

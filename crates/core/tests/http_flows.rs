@@ -230,7 +230,7 @@ async fn peer_timeout_cleans_pending_requests_and_does_not_replay_http() {
             .await
             .unwrap()
             .value["protocol"],
-        1
+        2
     );
     assert_eq!(web.count.load(Ordering::SeqCst), 1);
 }
