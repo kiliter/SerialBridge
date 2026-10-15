@@ -10,7 +10,7 @@
 
 ## 项目概览
 
-SerialBridge 通过 USB 串口连接两台对等节点，把本机 loopback HTTP 请求转发给对端，由对端用 `reqwest` 或已配对的 Chromium 扩展执行，并支持文件下载、拉取和推送。另有 TCP 转发：A 端监听本地端口，B 端连接 A 指定的目标地址，字节原样透传（典型用法是承载 Xray/Mihomo 的 VLESS）。当前版本 `0.0.2`。
+SerialBridge 通过 USB 串口连接两台对等节点，把本机 loopback HTTP 请求转发给对端，由对端用 `reqwest` 或已配对的 Chromium 扩展执行，并支持文件下载、拉取和推送。另有 TCP 转发：A 端监听本地端口，B 端连接 A 指定的目标地址，字节原样透传（典型用法是承载 Xray/Mihomo 的 VLESS）。当前版本 `0.0.3`。
 
 | 目录 | 内容 |
 |---|---|
